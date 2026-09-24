@@ -1,0 +1,41 @@
+{
+  "id": "O12c",
+  "title": "Trip lookup: closed trip ended before the identification (part 1 of 2, first trip)",
+  "description": "Part 1 of 2 for O12c, played in order against the same asset (part1 then part2). This trip runs and closes with no identifications of its own; it exists only to establish a first, closed trip on the asset before part 2 introduces both a second trip and the identification that must land in the gap between them. Must NOT change: this file carries no identifications, so nothing here should move the asset assignee at all.",
+  "suite": "fr-trip-lookup",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip 1 starts"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945,
+        "note": "trip 1 ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": []
+}

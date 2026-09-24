@@ -1,0 +1,67 @@
+{
+  "id": "O7.2",
+  "title": "Identification received after the manual change, asset write applies",
+  "description": "Same trip shape as O7.1, with two violations (HARDBRAKE at 90, HARDACCEL at 150) before the identification's claimed atSec (180). Here the identification is a delayed delivery: it claims atSec 180 but is not delivered until atSec 400, well after the trip has closed (200) and well after the scenario's manual asset-only correction step (patchAssetAssignee to driver C, orchestrated externally, before this identification is delivered). Must prove: because this identification's receipt is newer than the manual correction, the asset assignee becomes A and the trip assignee becomes A, and both violations are re-assigned to A. Must NOT change: nothing before this identification is delivered should move the trip's own assignee off null.",
+  "suite": "fr-guards",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 90,
+        "lat": 40.70327,
+        "lon": -74.42973,
+        "note": "violation 1, before the identification's atSec"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70342,
+        "lon": -74.42945
+      },
+      {
+        "type": "HARDACCEL",
+        "atSec": 150,
+        "lat": 40.70357,
+        "lon": -74.42917,
+        "note": "violation 2, before the identification's atSec"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 174,
+        "lat": 40.70372,
+        "lon": -74.42889
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 200,
+        "lat": 40.70387,
+        "lon": -74.42861
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 180,
+      "deliverAtSec": 400,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "delayed identification, received well after the scenario's manual correction step (external to this fixture)"
+    }
+  ]
+}

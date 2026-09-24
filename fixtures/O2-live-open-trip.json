@@ -1,0 +1,21 @@
+{
+  "id": "O2",
+  "title": "Live identification during an open trip",
+  "description": "The ordinary case. A three minute trip played in real time, with one identified driver arriving 70 seconds in while the trip is still open. Both assignee writes should fire immediately, and trip end should find nothing left to do. One HARDBRAKE at atSec 30, before the identification, so the driver is still unknown when it is raised: this is the violation the `noTransfers: true` assertion depends on, so proving trip end has nothing to reassign is not vacuously true against an empty trip.",
+  "suite": "fr-live",
+  "delay": { "mode": "none" },
+  "trip": {
+    "type": "normal",
+    "events": [
+      { "type": "IGN_ON",      "atSec": 0,   "lat": 40.70297, "lon": -74.43029, "note": "trip starts" },
+      { "type": "HARDBRAKE",   "atSec": 30,  "lat": 40.70305, "lon": -74.43015, "note": "violation while the driver is still unknown; noTransfers depends on this" },
+      { "type": "ON_PERIODIC", "atSec": 58,  "lat": 40.70312, "lon": -74.43001 },
+      { "type": "ON_PERIODIC", "atSec": 116, "lat": 40.70328, "lon": -74.42974 },
+      { "type": "ON_PERIODIC", "atSec": 174, "lat": 40.70344, "lon": -74.42946 },
+      { "type": "IGN_OFF",     "atSec": 180, "lat": 40.70346, "lon": -74.42943, "note": "trip ends" }
+    ]
+  },
+  "driver_identifications": [
+    { "atSec": 70, "driver": "A", "type": "identDrv", "note": "about a minute after ignition, as the camera behaves in production" }
+  ]
+}

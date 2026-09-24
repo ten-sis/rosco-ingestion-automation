@@ -1,0 +1,54 @@
+{
+  "id": "O3.4",
+  "title": "Delayed identification, same driver",
+  "description": "The trip runs and closes live (delay mode none, IGN_OFF at 150). The scenario sets up the asset's standing assignee as driver A beforehand. One HARDBRAKE at atSec 30, before the identification's claimed atSec 80, so it is a violation raised while the driver was still unknown -- this is the violation the `noTransfers: true` assertion depends on. The identification claims atSec 80 (inside the trip) but is not delivered until atSec 250, one hundred seconds after the trip already closed. Must prove: the trip's own assignee is still genuinely set, from null to A, by this identification, and it is flagged arrived_after_trip_ended. Must NOT change: because the asset assignee is already A, resulted_in_assignee_change must be false and no threshold event may be transferred.",
+  "suite": "fr-delayed",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 30,
+        "lat": 40.70305,
+        "lon": -74.43015,
+        "note": "violation while the driver is still unknown; noTransfers depends on this"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 80,
+      "deliverAtSec": 250,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "delayed identification, timestamp inside the already-closed trip; same driver as the asset's pre-existing standing assignee"
+    }
+  ]
+}

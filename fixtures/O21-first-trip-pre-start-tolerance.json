@@ -1,0 +1,48 @@
+{
+  "id": "O21",
+  "title": "Asset's very first trip, pre-start tolerance links a pre-start identification",
+  "description": "Phase-2, trip-start-consumer case (tagged @phase2, excluded from the default run). The identification claims atSec -300 (5 minutes before this asset's very first trip starts), inside the design's ten-minute pre-start tolerance, and is delivered live at deliverAtSec 0. This is distinct from O14 in fr-trip-lookup: O14 exercises the trip-END consumer's window, which is floored strictly at trip start with no tolerance; O21 exercises the trip-START consumer's documented pre-start-tolerance fallback, used specifically when there is no previous trip to floor the window against. Must prove: with no previous trip on this asset, the pre-start tolerance links the identification and awards the claim; both assignees become A. Must NOT change: nothing before the trip's own IGN_ON should be observable as a write, since the identification predates it.",
+  "suite": "fr-phase2",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "this asset's very first trip"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": -300,
+      "deliverAtSec": 0,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "5 minutes before this asset's very first trip starts, inside the ten-minute pre-start tolerance"
+    }
+  ]
+}

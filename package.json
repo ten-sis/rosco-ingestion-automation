@@ -1,0 +1,29 @@
+{
+  "name": "playwright-fr",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TS-43579 Rosco Facial Recognition - operation flow permutation suite",
+  "scripts": {
+    "test": "playwright test",
+    "test:live": "playwright test --grep @live",
+    "test:slow": "playwright test --grep @slow",
+    "test:all": "playwright test --grep-invert @phase2",
+    "test:phase2": "playwright test --grep @phase2",
+    "report": "playwright show-report",
+    "fixtures:check": "node fixtures/validate.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint:dryrun": "playwright test --list",
+    "play": "tsx tools/play.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.1.2",
+    "@types/pg": "^8.15.6",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "pg": "^8.16.3"
+  }
+}

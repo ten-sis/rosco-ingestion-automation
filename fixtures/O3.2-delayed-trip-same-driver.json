@@ -1,0 +1,55 @@
+{
+  "id": "O3.2",
+  "title": "Delayed trip, identified driver matches the one already assigned",
+  "description": "Same shape as O3.1 (identification delivered live, at deliverAtSec 0, before any trip exists; the trip's own frames then arrive as a full burst starting at burstStartAtSec 20), but the scenario sets up the asset's standing assignee as driver A beforehand, matching the identification's own driver. One HARDBRAKE at atSec 30, before the identification's claimed atSec 70, so it is a violation raised while the driver was still unknown -- this is the violation the `noTransfers: true` assertion depends on. Must prove: the trip's own assignee is still genuinely written, from null to A, because the trip-driver guard has no memory of the asset's value; no threshold transfer occurs. Must NOT change: because the asset assignee is already A, resulted_in_assignee_change must be false and no new asset-assignee write or audit entry may be recorded.",
+  "suite": "fr-delayed",
+  "delay": {
+    "mode": "full-burst",
+    "burstStartAtSec": 20
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 30,
+        "lat": 40.70305,
+        "lon": -74.43015,
+        "note": "violation while the driver is still unknown; noTransfers depends on this"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 70,
+      "deliverAtSec": 0,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "on the wire 20 seconds before the trip that contains it; same driver as the asset's pre-existing standing assignee"
+    }
+  ]
+}

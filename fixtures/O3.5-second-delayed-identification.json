@@ -1,0 +1,60 @@
+{
+  "id": "O3.5",
+  "title": "Second delayed identification, different driver, after O3.3-shaped state",
+  "description": "Builds on O3.3-shaped state: the scenario sets up the asset's standing assignee as driver B beforehand. The trip runs and closes live (IGN_OFF at 170), then two delayed identifications for the SAME trip arrive after it has already closed: A at deliverAtSec 230 (wins the claim), then B at deliverAtSec 280 (arrives after A already won). Must prove: A's identification wins the claim and both assignees become A. Must NOT change: B's second identification, though persisted, must never contest a claim the trip has already decided; the assignee must stay on A, not revert to B.",
+  "suite": "fr-delayed",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 140,
+        "lat": 40.70342,
+        "lon": -74.42945
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 170,
+        "lat": 40.70357,
+        "lon": -74.42917
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 80,
+      "deliverAtSec": 230,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "first delayed identification for this trip; arrives after the trip already closed and wins the claim"
+    },
+    {
+      "atSec": 120,
+      "deliverAtSec": 280,
+      "driver": "B",
+      "type": "identDrv",
+      "note": "second delayed identification for the same trip, arrives after A already won the claim"
+    }
+  ]
+}

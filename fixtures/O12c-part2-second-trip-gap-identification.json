@@ -1,0 +1,49 @@
+{
+  "id": "O12c",
+  "title": "Trip lookup: closed trip ended before the identification (part 2 of 2, second trip and the gap identification)",
+  "description": "Part 2 of 2 for O12c, played after part1 against the same asset. This trip is a second, later trip on the asset. The identification's claimed atSec is -40 relative to THIS file's trip start, i.e. it is timestamped in the gap after part1's trip already ended and before this trip started; it is delivered 5 seconds into this file's playback. Covering-guard table row 3: end_date < timestamp for part1's trip (it ended before this timestamp), and this trip's own start_date is after the timestamp too, so neither trip covers it. Must prove: the row persists with trip_id null, is never linked to either trip, and no assignee is written. Must NOT change: the asset assignee must stay untouched by this identification even though a later, second trip exists on the asset -- the lookup must not opportunistically attach it to whichever trip is nearest.",
+  "suite": "fr-trip-lookup",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip 2 starts"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 170,
+        "lat": 40.70342,
+        "lon": -74.42945,
+        "note": "trip 2 ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": -40,
+      "deliverAtSec": 5,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "claimed timestamp falls after trip 1 (part1) already ended and before trip 2 (this file) started; delivered 5 seconds into this file's playback"
+    }
+  ]
+}

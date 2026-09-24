@@ -1,0 +1,46 @@
+{
+  "id": "O23",
+  "title": "Trip-start and trip-end both run against the same already-linked row",
+  "description": "Phase-2, trip-start-consumer case (tagged @phase2, excluded from the default run). An ordinary live trip: driver A is identified at atSec 60 while the trip is open, well before the trip closes at atSec 150. Both the trip-start consumer (when the trip begins) and the trip-end consumer (when it closes) run their own check-before-write guard against this same row. Must prove: the trip-end consumer finds the claim already decided and both writes already in place, and performs neither write again -- exactly one rosco_driver_events row, still carrying is_assignee_source true, count 1. Must NOT change: the assignee must not move a second time when the trip closes, and no duplicate row or duplicate audit entry may appear.",
+  "suite": "fr-phase2",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 60,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "delivered live, while the trip is still open"
+    }
+  ]
+}

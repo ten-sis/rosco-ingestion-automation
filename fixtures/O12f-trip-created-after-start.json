@@ -1,0 +1,49 @@
+{
+  "id": "O12f",
+  "title": "Trip lookup: the trip is created after its own start (lookup orders by start_date)",
+  "description": "The identification is delivered live at deliverAtSec 0, before any trip exists on this asset. The trip's own frames are then sent as a full burst starting at burstStartAtSec 20, with their original atSec values preserved, so the trip row is only actually created 20 seconds into playback, well after the identification was already recorded unlinked, even though its start_date (atSec 0) precedes the identification's claimed timestamp (atSec 100). Must prove: at insert time the row is unlinked (no trip exists yet); once the backdated trip is created and closes, the trip-end pass finds this row inside its search window, links it, flags arrived_before_trip_created, and awards the claim. Must NOT change: nothing before the trip's own burst arrives should touch the assignee.",
+  "suite": "fr-trip-lookup",
+  "delay": {
+    "mode": "full-burst",
+    "burstStartAtSec": 20
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "backdated trip creation: start_date precedes the identification already on file"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 100,
+      "deliverAtSec": 0,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "delivered before any trip exists on this asset"
+    }
+  ]
+}

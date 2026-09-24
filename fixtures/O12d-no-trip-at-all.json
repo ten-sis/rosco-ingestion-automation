@@ -1,0 +1,21 @@
+{
+  "id": "O12d",
+  "title": "Trip lookup: no trip at all on the asset",
+  "description": "No trip is ever run on this asset for this fixture; trip.events is intentionally empty. Covering-guard table row 4: no row, no normal trip started at or before this timestamp, do not link. Must prove: the identification persists with trip_id null and no assignee is written. Must NOT change: the asset assignee must stay untouched, and there is nothing for even a later trip-end pass to find since no trip exists.",
+  "suite": "fr-trip-lookup",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 60,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "delivered on an asset that never runs a trip in this fixture"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "O3.1",
+  "title": "Delayed trip, identified driver differs from the one already assigned",
+  "description": "The identification reaches Tenna before the trip it belongs to, which is what happens when tracker telemetry is buffered. The identification finds no covering trip and is written unlinked. The trip then arrives as a burst, already finished. The trip-end consumer is what must stamp the trip id, set both assignees and re-assign the violations.",
+  "suite": "fr-delayed",
+  "delay": { "mode": "full-burst", "burstStartAtSec": 20 },
+  "trip": {
+    "type": "normal",
+    "events": [
+      { "type": "IGN_ON",      "atSec": 0,   "lat": 40.70297, "lon": -74.43029 },
+      { "type": "ON_PERIODIC", "atSec": 58,  "lat": 40.70312, "lon": -74.43001 },
+      { "type": "HARDBRAKE",   "atSec": 95,  "lat": 40.70320, "lon": -74.42988, "note": "a violation raised before the driver is known" },
+      { "type": "ON_PERIODIC", "atSec": 116, "lat": 40.70328, "lon": -74.42974 },
+      { "type": "IGN_OFF",     "atSec": 150, "lat": 40.70340, "lon": -74.42950 }
+    ]
+  },
+  "driver_identifications": [
+    { "atSec": 70, "deliverAtSec": 0, "driver": "A", "type": "identDrv", "note": "on the wire 20 seconds before the trip that contains it" }
+  ]
+}

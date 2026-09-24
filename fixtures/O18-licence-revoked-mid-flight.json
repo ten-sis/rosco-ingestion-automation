@@ -1,0 +1,58 @@
+{
+  "id": "O18",
+  "title": "Licence revoked mid-flight",
+  "description": "Driver A is identified live at atSec 60, while the facial recognition licence is enabled, and wins the claim. The scenario then disables the licence (external step, setLicence, not part of this fixture) shortly afterward. A second identification, for driver B, is then delivered at atSec 200, after the licence has been disabled. Must prove: A's identification is processed normally and both assignees become A; webhook traffic for B is still accepted on the wire (not rejected), but the identification consumer checks the licence first and stops, logging only, before ever persisting a row for B. Must NOT change: the assignee must never move to B, and no rosco_driver_events row should exist for B's post-revocation identification at all (driverEventRowCount stays 1).",
+  "suite": "fr-licence",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 174,
+        "lat": 40.70342,
+        "lon": -74.42945
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 220,
+        "lat": 40.70357,
+        "lon": -74.42917
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 60,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "delivered while the licence is enabled; wins the claim"
+    },
+    {
+      "atSec": 200,
+      "driver": "B",
+      "type": "identDrv",
+      "note": "delivered after the scenario disables the facial-recognition licence (external step, setLicence, not part of this fixture); must be accepted on the wire but must not produce a persisted row"
+    }
+  ]
+}

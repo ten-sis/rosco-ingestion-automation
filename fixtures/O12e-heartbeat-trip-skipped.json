@@ -1,0 +1,48 @@
+{
+  "id": "O12e",
+  "title": "Trip lookup: a heartbeat trip covers the identification, skipped by the type filter",
+  "description": "This trip's type is set to heartbeat rather than normal. The covering-trip lookup's SQL filters on type = 'normal', so this trip is invisible to the query even though its [start_date, end_date] window genuinely covers the identification's timestamp. The covering lookup that the identification consumer and the trip-end consumer both use must apply this same type filter. Must prove: the identification behaves exactly as O12d (unlinked, no write) despite a trip whose window covers it. Must NOT change: the asset assignee must stay untouched; the trip's own assignee must also stay untouched, since the trip is never a candidate in the first place.",
+  "suite": "fr-trip-lookup",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "heartbeat trip starts"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945,
+        "note": "heartbeat trip ends"
+      }
+    ],
+    "type": "heartbeat"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 60,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "timestamp genuinely falls inside this trip's window, but the trip's non-normal type must exclude it from the lookup"
+    }
+  ]
+}

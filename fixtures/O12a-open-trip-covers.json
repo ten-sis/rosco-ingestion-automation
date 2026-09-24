@@ -1,0 +1,35 @@
+{
+  "id": "O12a",
+  "title": "Trip lookup: open trip covers the identification",
+  "description": "Covering-guard table row 1: end_date is null, an open trip covers the identification, link it. The trip is deliberately left open for this fixture (no IGN_OFF is ever sent); this case only exercises the lookup finding an open covering trip, not trip close. Must prove: the identification links to the open trip and both assignees become A. Must NOT change: nothing before the identification should touch the assignee (the checkpoint right after the trip starts is the negative control).",
+  "suite": "fr-trip-lookup",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip starts, deliberately left open for this fixture"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 70,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "delivered while the trip is still open"
+    }
+  ]
+}

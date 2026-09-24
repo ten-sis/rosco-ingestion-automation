@@ -1,0 +1,55 @@
+{
+  "id": "O12b",
+  "title": "Trip lookup: closed trip covers the identification (end_date >= ts)",
+  "description": "Covering-guard table row 2: end_date >= timestamp, a closed trip covers the identification, link it and set arrived_after_trip_ended. The trip runs and closes live (IGN_OFF at 200); the identification claims atSec 150 (inside [0, 200]) but is not delivered until 250, fifty seconds after the trip already closed. Must prove: the row links to the closed trip, is flagged arrived_after_trip_ended, and both assignees become A. Must NOT change: the checkpoint right after trip end, before the identification is delivered, is the negative control proving the trip close itself did not touch the assignee.",
+  "suite": "fr-trip-lookup",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip starts"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 174,
+        "lat": 40.70342,
+        "lon": -74.42945
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 200,
+        "lat": 40.70357,
+        "lon": -74.42917,
+        "note": "trip ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 150,
+      "deliverAtSec": 250,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "claimed timestamp is inside the trip, but delivered 50 seconds after the trip already closed"
+    }
+  ]
+}

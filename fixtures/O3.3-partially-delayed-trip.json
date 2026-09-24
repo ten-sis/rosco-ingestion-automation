@@ -1,0 +1,20 @@
+{
+  "id": "O3.3",
+  "title": "Delayed identification against a trip that ran normally",
+  "description": "The trip runs and ends with a different driver already assigned. The identification arrives afterwards, claiming a timestamp inside the trip. It is the first identification for that trip, so both assignees move, and the violations are corrected later by the scorecard backfill cron rather than by this flow.",
+  "suite": "fr-delayed",
+  "delay": { "mode": "partial-burst", "burstThroughAtSec": 58, "burstStartAtSec": 0 },
+  "trip": {
+    "type": "normal",
+    "events": [
+      { "type": "IGN_ON",      "atSec": 0,   "lat": 40.70297, "lon": -74.43029, "note": "burst: buffered telemetry catches up" },
+      { "type": "ON_PERIODIC", "atSec": 58,  "lat": 40.70312, "lon": -74.43001, "note": "last burst event" },
+      { "type": "HARDBRAKE",   "atSec": 95,  "lat": 40.70320, "lon": -74.42988, "note": "from here the tracker is live" },
+      { "type": "ON_PERIODIC", "atSec": 116, "lat": 40.70328, "lon": -74.42974 },
+      { "type": "IGN_OFF",     "atSec": 170, "lat": 40.70340, "lon": -74.42950 }
+    ]
+  },
+  "driver_identifications": [
+    { "atSec": 80, "deliverAtSec": 200, "driver": "A", "type": "identDrv", "note": "arrives 30 seconds after the trip has ended" }
+  ]
+}

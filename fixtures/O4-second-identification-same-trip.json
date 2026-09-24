@@ -1,0 +1,66 @@
+{
+  "id": "O4",
+  "title": "Second identification on an already-claimed trip",
+  "description": "A second identDrv arrives 130 seconds after the first, while the trip is still open. The claim is already decided by the first identification (an advisory lock plus a partial unique index on the trip), so the second is expected to persist audit-only: recorded, linked to the trip, but never the assignee source. Must prove: the asset assignee and the trip assignee both stay on the first driver (A). Must NOT change: neither assignee may move to the second driver (B), and there must never be two rows both carrying is_assignee_source.",
+  "suite": "fr-live",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip starts"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 174,
+        "lat": 40.70342,
+        "lon": -74.42945
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 232,
+        "lat": 40.70357,
+        "lon": -74.42917
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 250,
+        "lat": 40.70372,
+        "lon": -74.42889,
+        "note": "trip ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 70,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "first identification, wins the claim"
+    },
+    {
+      "atSec": 200,
+      "driver": "B",
+      "type": "identDrv",
+      "note": "second identification, same trip; the claim is already decided and this must not move either assignee"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "id": "O17",
+  "title": "Multi-day trip, second driver identified on day two",
+  "description": "The real case is a trip lasting roughly 30 hours, with driver A identified early and driver B identified about a day later, still inside the same (very long), still-open trip. This fixture compresses that into minutes: the actual trip playback stays under 5 minutes (IGN_ON at 0, IGN_OFF at 170) to stay inside MAX_TRIP_SECONDS and to keep the test's wall-clock run short. Only driver B's identification is stretched: its atSec (26 hours = 93600) is deliberately far beyond the fixture's own compressed trip bounds, standing in for the real day-two timestamp, while its deliverAtSec (160) delivers it before the compressed trip's own IGN_OFF (170), so the trip is still genuinely open when it arrives, matching the real multi-day case this fixture stands in for. Must prove: the assignee moves once, to A, and stays there. Must NOT change: B's day-two identification must not move the assignee off A, per the PM rule that multi-day trips are not split and a second driver identified later in the same trip is discarded.",
+  "suite": "fr-live",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip starts"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 170,
+        "lat": 40.70342,
+        "lon": -74.42945,
+        "note": "trip ends; compressed stand-in for a ~30 hour real trip"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 70,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "day-one identification, wins the claim"
+    },
+    {
+      "atSec": 93600,
+      "deliverAtSec": 160,
+      "driver": "B",
+      "type": "identDrv",
+      "note": "day-two identification (claimed atSec = 26h, far beyond this fixture's compressed trip bounds); delivered before the compressed trip's own IGN_OFF (170) so the trip is still open when it arrives"
+    }
+  ]
+}

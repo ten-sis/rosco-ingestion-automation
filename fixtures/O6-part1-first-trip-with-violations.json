@@ -1,0 +1,61 @@
+{
+  "id": "O6",
+  "title": "Late identification for a trip already superseded by a later one (part 1 of 2, first trip)",
+  "description": "Part 1 of 2 for O6, played in order against the same asset (part1 then part2). This is the trip that the late identification in part2 will target: it carries two violations, HARDBRAKE at atSec 90 and HARDACCEL at atSec 150, both before atSec 180, the point in this trip's window that part2's identification claims. Must prove (jointly with part2): once the identification lands, this trip's own assignee becomes A and both violations are re-assigned to A. Must NOT change: this file alone carries no identification, so nothing here should move any assignee by itself.",
+  "suite": "fr-trip-lookup",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip 1 starts"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 90,
+        "lat": 40.70327,
+        "lon": -74.42973,
+        "note": "violation 1, before the identification's claimed timestamp in part2"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70342,
+        "lon": -74.42945
+      },
+      {
+        "type": "HARDACCEL",
+        "atSec": 150,
+        "lat": 40.70357,
+        "lon": -74.42917,
+        "note": "violation 2, before the identification's claimed timestamp in part2"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 174,
+        "lat": 40.70372,
+        "lon": -74.42889
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 200,
+        "lat": 40.70387,
+        "lon": -74.42861,
+        "note": "trip 1 ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": []
+}

@@ -1,0 +1,74 @@
+{
+  "id": "O13",
+  "title": "Threshold reassignment excludes already-transferred violations",
+  "description": "Three violations occur while the trip is open: HARDBRAKE at 60 and HARDACCEL at 120 (the two qualifying violations required ahead of the identification's claim), plus HARDTURN at 180 for narrative parity with the design doc's own three-violation example. The identification claims atSec 190, after all three violations, but is not delivered until atSec 300, well after the trip has closed (220) and after the scenario's own manual transfer step (transferring the earliest violation, HARDBRAKE at 60, to driver C, orchestrated externally, before this identification is delivered). Must prove: the two violations NOT already manually transferred (HARDACCEL at 120 and HARDTURN at 180) are re-assigned to A. Must NOT change: the manually-transferred violation (HARDBRAKE at 60, transferred_by_id set to a human) must stay with C and must never be re-assigned by this flow, because transferred_by_id IS NULL OR = the FR service user is part of the reassignment's own selection criteria.",
+  "suite": "fr-guards",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 60,
+        "lat": 40.70327,
+        "lon": -74.42973,
+        "note": "violation 1, manually transferred to C by the scenario before the identification lands"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70342,
+        "lon": -74.42945
+      },
+      {
+        "type": "HARDACCEL",
+        "atSec": 120,
+        "lat": 40.70357,
+        "lon": -74.42917,
+        "note": "violation 2, must be re-assigned to A"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 174,
+        "lat": 40.70372,
+        "lon": -74.42889
+      },
+      {
+        "type": "HARDTURN",
+        "atSec": 180,
+        "lat": 40.70387,
+        "lon": -74.42861,
+        "note": "violation 3, must be re-assigned to A"
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 220,
+        "lat": 40.70402,
+        "lon": -74.42833
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 190,
+      "deliverAtSec": 300,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "late identification, delivered after both the trip has closed and the scenario's manual transfer of the first violation to C"
+    }
+  ]
+}

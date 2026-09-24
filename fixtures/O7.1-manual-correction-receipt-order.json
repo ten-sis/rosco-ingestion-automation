@@ -1,0 +1,66 @@
+{
+  "id": "O7.1",
+  "title": "Manual correction wins on receipt order, trip write is unaffected",
+  "description": "Two violations (HARDBRAKE at 90, HARDACCEL at 150) occur before the identification's claimed atSec (180), so there is something for the flow to move. The identification is delivered live, essentially as soon as it is claimed (deliverAtSec defaults to atSec 180), i.e. it is received BEFORE the scenario's own manual asset-only correction step (patchAssetAssignee to driver C, orchestrated by the scenario runner, not part of this fixture file). Must prove: the trip's own assignee becomes A regardless of the later manual correction, and both violations are re-assigned to A. Must NOT change: once the manual correction (external to this fixture) sets the asset assignee to C, this trip's own assignee, already set to A by this identification, must never be reverted or touched by that asset-only write.",
+  "suite": "fr-guards",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 90,
+        "lat": 40.70327,
+        "lon": -74.42973,
+        "note": "violation 1, before the identification's atSec"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70342,
+        "lon": -74.42945
+      },
+      {
+        "type": "HARDACCEL",
+        "atSec": 150,
+        "lat": 40.70357,
+        "lon": -74.42917,
+        "note": "violation 2, before the identification's atSec"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 174,
+        "lat": 40.70372,
+        "lon": -74.42889
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 200,
+        "lat": 40.70387,
+        "lon": -74.42861
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 180,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "received first, while the asset carries no standing correction yet; the scenario's manual patchAssetAssignee(C) step runs after this, outside this fixture"
+    }
+  ]
+}

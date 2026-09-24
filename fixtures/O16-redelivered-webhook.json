@@ -1,0 +1,63 @@
+{
+  "id": "O16",
+  "title": "Redelivered webhook, byte-identical payload",
+  "description": "The same identDrv payload for driver A is delivered twice: once at atSec 70 while the trip is open, and again later as a byte-identical redelivery (same vehicle_id, name, atSec, and driver_guid, so the same normalised timestamp string per AGENT-BRIEF item 3). Must prove: the deterministic event_id collides and exactly one rosco_driver_events row exists, with exactly one assignee-audit write. Must NOT change: the redelivery must not create a second row, must not re-fire the assignee write, and must not move the assignee off A.",
+  "suite": "fr-live",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip starts"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 174,
+        "lat": 40.70342,
+        "lon": -74.42945
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 200,
+        "lat": 40.70357,
+        "lon": -74.42917,
+        "note": "trip ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 70,
+      "driver": "A",
+      "type": "identDrv",
+      "as": "first",
+      "note": "original delivery, wins the claim"
+    },
+    {
+      "atSec": 70,
+      "driver": "A",
+      "type": "identDrv",
+      "redeliverOf": "first",
+      "deliverAtSec": 250,
+      "note": "byte-identical redelivery, sent after the trip has already closed; must carry the same normalised timestamp string as the first delivery or the deterministic event_id will not collide and this test proves nothing"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "O22",
+  "title": "A trip-started message arrives after an identification for that trip was already written",
+  "description": "Phase-2, trip-start-consumer case (tagged @phase2, excluded from the default run). The identification is delivered live at deliverAtSec 0, claiming atSec 10. The trip's own frames (IGN_ON at atSec 0, so its start_date precedes the identification's claimed timestamp) are sent as a full burst starting at burstStartAtSec 5, i.e. the trip-started message is delivered 5 seconds AFTER the identification, even though the trip's own start_date is earlier. The trip is deliberately left open (no IGN_OFF): this case tests only the trip-start consumer's ordering, not trip close. Must prove: the trip-start consumer links the row, awards the claim, and writes both assignees as soon as the trip-started message arrives, even though it arrived after the identification. Must NOT change: before the trip-started message arrives, the identification must sit unlinked with no assignee written anywhere.",
+  "suite": "fr-phase2",
+  "delay": {
+    "mode": "full-burst",
+    "burstStartAtSec": 5
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip-started message delivered after the identification, backdated to start before it; trip deliberately left open"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 50,
+        "lat": 40.70312,
+        "lon": -74.43001
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 10,
+      "deliverAtSec": 0,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "identification for a trip that has not started yet, from Tenna's perspective"
+    }
+  ]
+}

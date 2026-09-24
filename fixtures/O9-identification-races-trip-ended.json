@@ -1,0 +1,55 @@
+{
+  "id": "O9",
+  "title": "Identification races the trip-ended message on the same trip",
+  "description": "This suite's own O9 naming (identification-vs-trip-ended race) differs from the design doc's O9 (two concurrent identifications); see src/scenarios/race.ts for the discrepancy note. The identification (claimed atSec 60) and the trip's own IGN_OFF share the same deliverAtSec (150), signalling to the player that both must be dispatched together without waiting for either to settle first; a genuine race, not array-order delivery, is the point (the scenario repeats this fixture 5 times). One HARDBRAKE at atSec 30, before the identification's claimed atSec 60, so the driver is still unknown when it is raised: this is the violation the `allAssignedTo: 'A'` assertion depends on, so proving violation attribution converges on A is not vacuously true against an empty trip (defect H2). Must prove: regardless of which of the two arrives first, exactly one row ends up carrying is_assignee_source (proving the partial unique index, not just application logic, prevents a duplicate claim), and the asset assignee, trip assignee, and violation attribution all converge on A. Must NOT change: no run of the 5 repeats may produce two rows with is_assignee_source true, or an assignee other than A.",
+  "suite": "fr-race",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 30,
+        "lat": 40.70305,
+        "lon": -74.43015,
+        "note": "violation while the driver is still unknown; allAssignedTo depends on this"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945,
+        "note": "fired concurrently with the identification below (same deliverAtSec)"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 60,
+      "deliverAtSec": 150,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "deliverAtSec matches the trip's own IGN_OFF deliverAtSec, to signal a genuine race rather than a fixed arrival order"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "id": "O6",
+  "title": "Late identification for a trip already superseded by a later one (part 2 of 2, second trip and the late identification)",
+  "description": "Part 2 of 2 for O6, played after part1 against the same asset. This trip is a second, later trip that runs and closes normally before the identification arrives. The identification's claimed atSec is -600 relative to THIS file's trip start, standing in for a timestamp inside part1's trip window (real elapsed wall-clock time between the two playback sessions is not reproducible across separate fixture files, so this offset is descriptive rather than exact); it is not delivered until atSec 250, after this trip has already started and ended. Must prove: the trip-recency guard finds this second, later normal trip already exists on the asset and skips the asset write, while part1's trip is still linked (closed trip covers, flagged arrived_after_trip_ended), its own assignee still becomes A, and its two violations are still re-assigned to A. Must NOT change: the asset's current assignee (set by trip 2, or whatever stands after part1) must NOT be overwritten by this late identification -- that is exactly what the trip-recency guard exists to prevent -- and this file's own trip (trip 2) must keep its own assignee unchanged.",
+  "suite": "fr-trip-lookup",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip 2 starts"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945,
+        "note": "trip 2 ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": -600,
+      "deliverAtSec": 250,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "claimed timestamp stands in for a point inside part1's trip window; delivered only after this file's own trip has already started and ended"
+    }
+  ]
+}

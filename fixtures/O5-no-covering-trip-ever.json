@@ -1,0 +1,21 @@
+{
+  "id": "O5",
+  "title": "Identification with no covering trip, ever",
+  "description": "Same shape as O12d: no trip is ever run on this asset in this fixture, trip.events is intentionally empty. Must prove: the identification persists unlinked, with no assignee write. Must NOT change: the asset assignee must stay untouched. The metrics-side measurement this case is meant to inform (the gap between the identification and the next trip start, which decides whether the phase-2 trip-start consumer is built) has no field in the Fixture or Scenario types and is out of scope for this fixture; only the row-level outcome is asserted here.",
+  "suite": "fr-trip-lookup",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 60,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "delivered on an asset that never runs a trip in this fixture"
+    }
+  ]
+}

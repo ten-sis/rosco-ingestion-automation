@@ -1,0 +1,52 @@
+{
+  "id": "O19",
+  "title": "TrackIt exclusivity on an account holding both licences",
+  "description": "The scenario provisions the account with both the facial-recognition licence and the TrackIt licence enabled (external precondition, not part of this fixture). One violation (HARDBRAKE at 100) occurs before the identification's claimed atSec (150), so there is something TrackIt's own trip-ended handling could otherwise disturb. Must prove: TripEventService.getAssigneeOverrides()'s early exit for facial-recognition-enabled accounts means TrackIt's trip-ended handling never runs, so the outcome converges cleanly on A with no contention. Must NOT change: the violation and both assignees must land on A exactly as they would with TrackIt absent; any deviation would mean the mirror check that suppresses TrackIt did not fire.",
+  "suite": "fr-licence",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 100,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 158,
+        "lat": 40.70342,
+        "lon": -74.42945
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 180,
+        "lat": 40.70357,
+        "lon": -74.42917
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 150,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "delivered live, while the trip is still open"
+    }
+  ]
+}
