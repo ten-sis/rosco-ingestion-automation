@@ -6,3 +6,4 @@ blob-report/
 .env
 .runs/
 *.log
+.claude/worktrees/

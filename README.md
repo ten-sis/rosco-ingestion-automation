@@ -48,7 +48,7 @@ The threshold-event routes on `hapi-server-scorecards` declare `auth: 'jwt'` in 
 
 ## Guardrail: this suite never points at production
 
-Every scenario writes to a real account. `ENV` in `.env` selects `dv2`, `dv3`, `qa1`, `demo` or `stg`; there is no `prd` option, and none should ever be added. `ALLOW_MUTATIONS` must be set to `1` explicitly before any test runs, on top of that. If you are looking at this file wondering whether it is safe to point at production: it is not, do not add the environment, and do not bypass the mutation guard to make it work anyway.
+Every scenario writes to a real account. `ENV` in `.env` is a label only (used in fixture names and the run manifest) — it does not choose which cluster you hit, that is whatever your port-forwards are bound to and what `CRUD_BASE_URL`/`WEBHOOK_BASE_URL`/`SCORECARDS_BASE_URL`/`DIGESTION_BASE_URL` resolve to. `src/env.ts`'s `assertNotProduction` runs against `ENV` and every one of those URLs on access, and rejects `prd`/`prod`/`production` and lookalike substrings (`.prd.`, `rds.amazonaws.com`, ...); `assertIntraServiceHost` separately requires `CRUD_BASE_URL` to be exactly `localhost:3000`, which only a nonprod port-forward can ever be. `ALLOW_MUTATIONS` must be set to `1` explicitly before any test runs, on top of that. If you are looking at this file wondering whether it is safe to point at production: it is not, do not bypass these guards to make it work anyway, and do not add a `prd` value anywhere they check.
 
 ## Setup
 
@@ -58,7 +58,7 @@ cp .env.example .env
 # fill in ACCOUNT_ID at minimum
 ```
 
-The target account needs `account_integrations.partner = 'rosco'`. The facial-recognition licence (`TennaCAM Facial Recog`) is enabled by the preflight step through the API before any scenario runs; it is no longer a manual step or an open question, so nothing needs enabling by hand.
+The target account needs `account_integrations.partner = 'rosco'`. The preflight step flips the facial-recognition licence (`TennaCAM Facial Recog`) to enabled through the API before any scenario runs, but it can only flip an existing row: `POST /v4/account-licenses` cannot safely create the first one (`account_license/v4/controller.js:31-39` needs `req.session.account_id`, which the intra-service bypass never sets), so the account must already carry an `account_licenses` row for this licence, in any state, before this suite touches it. Someone with Tenna-account credentials seeds that row once per test account; preflight throws an actionable error if it is missing (`PLAN/06-BLOCKERS.md`).
 
 ## One asset per spec file, and files run in parallel
 
@@ -135,6 +135,12 @@ The other operation scenarios have not been run against dv3 yet. Expect them to 
 
 - `POST /v5/rosco-driver-events/search` rejects the `contact_active` and `driver_id` fields that the design doc defines. The reader drops them after the first 422 and prints a warning, so they read as null. O8's `contactActive: false` expectation will fail on this until the columns ship.
 - `POST /v5/rosco-events/publish` still cannot carry Type 6 or Type 7, so `EMITTER=webhook` stays the only working emission path (`PLAN/06-BLOCKERS.md`).
+- The facial-recognition licence row itself cannot be created from here (see Setup, above); an account with no `account_licenses` row for it at all fails preflight rather than the suite creating one.
+
+### Known assumptions still open (`PLAN/06-BLOCKERS.md`)
+
+- **O8's `contact_active` semantics.** The design says the column is captured at insert time, when the contact was still active, so a literal reading leaves it `true` even after the contact is later deactivated. The suite asserts `false` instead, on the theory that this is what makes the contact-status guard's effect observable. If the real implementation captures at insert and never refreshes, this assertion moves to the guard's effect (no asset/trip write, no reassignment) rather than to the column.
+- **O17's identification is stamped ahead of when it is sent.** The scenario compresses a multi-day trip into minutes but keeps the day-two identification's `atSec` at 93600 (about 26 hours after the trip's own anchor) so it stays recognisably "day two." Every other fixture in the suite stamps at or behind its delivery time; O17 is the one deliberate exception, kept because backdating the trip itself would collide with the trip-recency guard on the shared asset.
 
 ### Harness fixes made against the live environment
 
