@@ -22,7 +22,7 @@ fails the public-host check for localhost.
 ### 2. The operator brings the tunnels up, not the suite.
 
 Two port-forwards, documented at the TOP of README.md as prerequisites:
-`kubectl port-forward -n be-crud svc/be-crud-v5 3000:3000` and
+`kubectl port-forward -n be-crud svc/be-crud-v5 3000:80` and
 `kubectl port-forward -n integration svc/webhooks-api 8081:80`. The backend-crud one must bind
 local port 3000 exactly. A third, the DB tunnel, is needed only for the SQL reader.
 

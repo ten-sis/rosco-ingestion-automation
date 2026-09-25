@@ -1,15 +1,25 @@
 # playwright-fr
 
-## Prerequisites: four port-forwards, run by the operator
+## Prerequisites: four port-forwards and an optional DB tunnel
 
-Nothing in this suite works until four `kubectl port-forward` processes are running. The operator brings these up before running anything; the suite never starts them itself and fails with an actionable message if they are missing.
+Nothing in this suite works until four `kubectl port-forward` processes are running. One command opens all of them against the Dv3A cluster, each under a supervisor that restarts it if kubectl drops, plus the read-only dv3 RDS tunnel:
 
 ```bash
-kubectl port-forward -n be-crud     svc/be-crud-v5       3000:3000
+scripts/tunnels.sh up        # --context <name> for another nonprod cluster, --no-db to skip the DB
+scripts/tunnels.sh status
+scripts/tunnels.sh down      # --keep-db to leave the DB tunnel open
+```
+
+The script refuses any kube context containing `prd` or `prod`. PIDs and logs are in `.runs/tunnels/`. The equivalent manual commands (every one of these Services listens on port 80 in the cluster):
+
+```bash
+kubectl port-forward -n be-crud     svc/be-crud-v5       3000:80
 kubectl port-forward -n integration svc/webhooks-api     8081:80
 kubectl port-forward -n snc         svc/scorecard-v2-api 3001:80
 kubectl port-forward -n ingestion   svc/digestion        3002:80
 ```
+
+Every run starts with the read-only `connectivity` project (`tests/connectivity/`), which checks each tunnel, confirms the account name matches `EXPECTED_ACCOUNT_NAME`, and confirms the rosco integration and the FR licence are already on. Every other project depends on it, so a dead tunnel fails in seconds with the tunnel named. `npm run test:connectivity` runs only that gate; `npm run test:unit` runs the offline unit specs without it.
 
 The backend-crud forward **must bind local port 3000 exactly**. The Host header `localhost:3000` is what puts the request onto backend-crud's intra-service path (`app/middleware/session.js`); binding any other local port silently breaks authentication, because the request then falls onto the public Cognito path instead and fails the public-host check for `localhost`. See "There is no login" below — the same no-token story covers all four services, not only backend-crud.
 
@@ -20,8 +30,8 @@ The fourth forward is `hapi-plugin-digestion-api` (deployed as HelmRelease `dige
 A fifth tunnel is optional, needed only for the SQL driver-events reader (`DRIVER_EVENTS_READER=sql`) and the SQL probes in `PLAN/05-VERIFICATION.md`:
 
 ```bash
-_tools/engineering-tools/scripts/db-tunnel.sh --environment dv3
-# opens localhost:54200
+scripts/tunnels.sh up    # includes it; or _tools/engineering-tools/scripts/db-tunnel.sh --environment dv3
+# opens localhost:54334 (dv3 read replica)
 ```
 
 Everything else in this file assumes the first four are already up.
@@ -98,15 +108,59 @@ npm run lint:dryrun
 npm run report
 ```
 
-## What "red" means right now
+## Current state (2026-09-24, Dv3A)
 
-Almost everything. `tests/setup/provision.spec.ts` is the one spec expected to pass today, because it only touches endpoints that already exist. Every `o-*.spec.ts` file is expected to fail until its blockers in `PLAN/06-BLOCKERS.md` ship — most immediately, `POST /v5/rosco-events/publish` still cannot carry a Type 6 or Type 7 event, so `EMITTER=webhook` over the port-forward (the default) is the only working emission path until that schema widens. `PLAN/02-BUILD-STEPS.md` has the three-question triage for telling a red-because-absent test apart from a red-because-broken one before filing anything as a regression.
+This is what a real run against the Dv3A cluster does today.
+
+### Default run: read-only, green
+
+`npm run test:all` without `ALLOW_MUTATIONS` runs 51 tests: 50 pass and 1 is skipped. The 7 `connectivity` tests go first, then the 44 offline `unit` tests. The skipped one is the DB check, which only runs when `DB_URL` is set or `DRIVER_EVENTS_READER=sql`. A green default run proves every tunnel is up, the account is the expected one, and the account already has the rosco integration and an active FR licence. It exercises none of the facial-recognition pipeline. With a tunnel down, the matching connectivity test fails in milliseconds with the tunnel named, and every other test is reported as "did not run".
+
+### Mutating run: preflight passes, O2 is the reference failing test
+
+With `ALLOW_MUTATIONS=1`, preflight provisions for real: it creates an `[FRTest]` asset, creates a TennaCAM 2.0 tracker with a fixture Rosco `vehicle_id`, links it to the account, installs it on the asset, verifies it, and waits for Digestion to resolve the camera (a couple of seconds on dv3). Driver contacts are created once and reused by later runs.
+
+O2 (live identification during an open trip) is the one scenario confirmed to drive real infrastructure from start to finish, and it fails for a product reason:
+
+```bash
+ASSET_ID= ASSET_ID_FR_LIVE= ACCOUNT_ID=<id> ALLOW_MUTATIONS=1 FR_DEBUG=1 \
+  npx playwright test tests/o-live.spec.ts --grep "O2 "
+```
+
+Observed on dv3, about 3.2 minutes per run: three GMS telemetry frames through `POST /v5/automation-tracker` (200), the identification through `POST localhost:8081/rosco` (200), then 60 seconds of polling the asset. The asset assignee never changes, so the test fails with "the facial-recognition pipeline did not write it". The webhook accepts the event; nothing downstream acts on it yet. `FR_DEBUG=1` prints one line per HTTP call, which is how to confirm events really left the suite.
+
+The other operation scenarios have not been run against dv3 yet. Expect them to fail for the same reason, plus the gaps below.
+
+### Known product gaps seen on dv3
+
+- `POST /v5/rosco-driver-events/search` rejects the `contact_active` and `driver_id` fields that the design doc defines. The reader drops them after the first 422 and prints a warning, so they read as null. O8's `contactActive: false` expectation will fail on this until the columns ship.
+- `POST /v5/rosco-events/publish` still cannot carry Type 6 or Type 7, so `EMITTER=webhook` stays the only working emission path (`PLAN/06-BLOCKERS.md`).
+
+### Harness fixes made against the live environment
+
+Each of these was hidden until the suite first ran against a real cluster, and each one blocked every scenario.
+
+- The backend-crud Service listens on port 80, so the forward is `3000:80`. The docs used to say `3000:3000`, which cannot bind.
+- The dv3 DB tunnel listens on local port 54334, not 54200.
+- dv3 names the licence `TennaCAM Facial Recog.` with a trailing period, and returns the join as an `account_licenses` array. Licence lookups now ignore trailing periods (`licenceNameMatches`).
+- `POST /v5/assets` requires `category_id` and a `fleet` number that is unique on the account. The category comes from `ASSET_CATEGORY_ID` when set, otherwise it is borrowed from an existing asset on the account.
+- `PATCH /v5/tracker-asset-associations/:id/verify` requires `{ certification_passed: true }`.
+- Digestion's `GET /trackers?make=rosco&serial=<vehicle_id>&include=secondary` puts `asset_id`/`account_id` on the primary tracker row, not inside `secondaryTracker`. The old parser never saw a resolved camera and timed out after 180 seconds.
+
+### Pinning an asset does not work yet
+
+`ASSET_ID` / `ASSET_ID_<FLEET>` pointing at an asset that already has a tracker fails with a 409, because provisioning always creates and installs a new TennaCAM, even on a pinned asset. Leave the pins empty (as in the O2 command above) and let each fleet create its own asset. Reusing a pinned asset's existing tracker via `TRACKER_ID`/`VEHICLE_ID` is not implemented.
+
+### Cleanup
+
+Every mutating run leaves `[FRTest]`-tagged assets, trackers and associations on the account. Their ids are in the per-run manifests under `.runs/[FRTest]-*.json` (gitignored). Nothing deletes them automatically.
 
 ## Layout
 
 ```
 playwright-fr/
-  playwright.config.ts      ENV-driven; fullyParallel: false, workers > 1; projects: preflight -> operation
+  playwright.config.ts      ENV-driven; fullyParallel: false, workers > 1; projects: connectivity -> unit, preflight -> operation
+  scripts/tunnels.sh        opens, checks and closes the port-forwards and the DB tunnel
   src/
     scenario/types.ts        the Scenario contract (do not edit)
     fixture/types.ts          the Fixture contract (do not edit)
@@ -116,6 +170,7 @@ playwright-fr/
   fixtures/                  JSON fixtures, one file per fixture-driven case
   tools/play.ts               stand-alone fixture player
   tests/
+    connectivity/services.spec.ts  connectivity/account-readiness.spec.ts   read-only gate
     setup/provision.spec.ts
     o-live.spec.ts  o-trip-lookup.spec.ts  o-delayed.spec.ts  o-guards.spec.ts
     o-race.spec.ts  o-licence.spec.ts  o-phase2.spec.ts

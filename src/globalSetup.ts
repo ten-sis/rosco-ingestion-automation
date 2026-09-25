@@ -11,7 +11,7 @@
  *    the ones that prove nothing. Throwing here fails the whole run with one clear message instead
  *    of letting every worker's fixture setup fail separately and noisily.
  * 2. Prints a banner naming how many operation-suite scenarios are skipped by default, and why, so
- *    a green default run (36 unit tests, nothing else) is never mistaken for a real one.
+ *    a green default run (connectivity and unit tests, nothing else) is never mistaken for a real one.
  */
 import { env } from './env';
 import { ALL_SCENARIOS } from './scenarios/index';
@@ -38,8 +38,8 @@ function printSkipBanner(): void {
       `\n${rule}\n` +
         `FR SUITE: DEFAULT INVOCATION. ALLOW_MUTATIONS is not set, so all ${total} operation ` +
         `scenarios (including ${phase2Count} @phase2) are SKIPPED via playwright.config.ts's ` +
-        `grepInvert. Only the "unit" and "preflight" projects' tests run. This is a green run ` +
-        `that has exercised NONE of the facial-recognition pipeline.\n` +
+        `grepInvert. Only the read-only "connectivity" and offline "unit" projects run. This ` +
+        `is a green run that has exercised NONE of the facial-recognition pipeline.\n` +
         `Set ALLOW_MUTATIONS=1 to run the operation suite against a real, non-production target.\n` +
         `${rule}\n`,
     );

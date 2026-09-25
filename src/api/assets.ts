@@ -30,6 +30,32 @@ export async function createAsset(api: ApiClient, input: CreateAssetInput): Prom
   return firstId(ids, `createAsset: POST /v5/assets for input ${JSON.stringify(input)}`);
 }
 
+interface AssetListResponse {
+  results: Array<{ id: Uuid; category_id?: Uuid | null }>;
+}
+
+/**
+ * The category a fixture asset is created in. `POST /v5/assets` rejects a body without
+ * `category_id` and `fleet` (422, observed live on dv3 2026-09-24). `ASSET_CATEGORY_ID` pins it;
+ * otherwise this borrows the category of an existing asset on the account, which is guaranteed to
+ * be one the account can use.
+ */
+export async function resolveAssetCategoryId(api: ApiClient): Promise<Uuid> {
+  const pinned = process.env.ASSET_CATEGORY_ID;
+  if (pinned) return pinned;
+  const response = await api.get<AssetListResponse>('/v5/assets', {
+    query: { limit: 1, fields: 'id,category_id' },
+  });
+  const categoryId = response.results.find((a) => a.category_id)?.category_id;
+  if (!categoryId) {
+    throw new Error(
+      `resolveAssetCategoryId: account ${api.accountId} has no asset with a category to borrow. ` +
+        'Set ASSET_CATEGORY_ID in .env to a category this account can create assets in.',
+    );
+  }
+  return categoryId;
+}
+
 /** Reads an asset, including its contacts (assignee) include block. */
 export async function getAsset(api: ApiClient, id: Uuid): Promise<Asset> {
   return api.get<Asset>(`/v5/assets/${id}`, { query: { include: 'contacts' } });

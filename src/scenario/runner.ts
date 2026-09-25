@@ -471,6 +471,9 @@ async function deliverSettleStep(sc: ScenarioContext, step: SettleStep): Promise
       }
       await expect
         .poll(async () => (await getAssetAssignee(sc.api, sc.run.assetId)) !== baseline, {
+          message:
+            `asset ${sc.run.assetId} assignee was still ${baseline ?? 'unset'} ${budgetMs}ms after the ` +
+            'identification was accepted by the webhook: the facial-recognition pipeline did not write it',
           timeout: budgetMs,
           intervals: [POLL_INTERVAL_MS],
         })

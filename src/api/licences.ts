@@ -12,7 +12,24 @@ interface AccountIntegrationSearchResponse {
 interface LicenseRow {
   id: Uuid;
   name: string;
-  account_license?: { active?: boolean } | null;
+  /**
+   * `fields=...,account_license.active` comes back as the PLURAL `account_licenses`, an array
+   * scoped to the calling session's account (observed live on dv3, 2026-09-24). An account with no
+   * row for the licence gets an empty array or no key at all.
+   */
+  account_licenses?: Array<{ active?: boolean }> | null;
+}
+
+/**
+ * Licence names are free text and not consistent across environments: dv3 stores
+ * `TennaCAM Facial Recog.` with a trailing period, while `FR_LICENSE_NAME` has none. Exact `===`
+ * therefore never matched, so `accountHasLicence` reported false for an active licence and
+ * `setAccountLicenceEnabled` threw "no licence named ...". Compare trimmed, without trailing
+ * periods.
+ */
+export function licenceNameMatches(actual: string, expected: string): boolean {
+  const normalize = (value: string): string => value.trim().replace(/\.+$/, '');
+  return normalize(actual) === normalize(expected);
 }
 
 /**
@@ -44,9 +61,8 @@ export async function accountHasRoscoIntegration(api: ApiClient, accountId: Uuid
  * callers that need a different account should build one with `api.forAccount(accountId)` and
  * pass that client in along with the same `accountId`.
  *
- * VERIFY: the `account_license` join's exact response field name (assumed
- * `account_license.active`, from licenses.schema.js's `expandAttrs("account_license",
- * "account_license", ...)`) is unconfirmed without a live call.
+ * The join's response shape (`account_licenses: [{ active }]`) and the dv3 licence name were
+ * confirmed with a live call against dv3 on 2026-09-24.
  */
 export async function accountHasLicence(api: ApiClient, accountId: Uuid, licenceName: string): Promise<boolean> {
   if (accountId !== api.accountId) {
@@ -60,8 +76,8 @@ export async function accountHasLicence(api: ApiClient, accountId: Uuid, licence
   const licences = await api.get<LicenseRow[]>('/v5/licenses', {
     query: { fields: 'id,name,account_license.active' },
   });
-  const match = licences.find((l: LicenseRow) => l.name === licenceName);
-  return match?.account_license?.active ?? false;
+  const match = licences.find((l: LicenseRow) => licenceNameMatches(l.name, licenceName));
+  return match?.account_licenses?.some((row) => row.active === true) ?? false;
 }
 
 // `setAccountLicenceEnabled` (`../fixtures/provision.ts`) is the one implementation of "enable or

@@ -4,7 +4,7 @@ Ordered so that every step is checkable on its own before the next one starts. S
 
 ## 0. Unblock, 0.25 d (operator, not code)
 
-Bring up the three required port-forwards: `kubectl port-forward -n be-crud svc/be-crud-v5 3000:3000`, `kubectl port-forward -n integration svc/webhooks-api 8081:80`, and `kubectl port-forward -n snc svc/scorecard-v2-api 3001:80` (the last one is `hapi-server-scorecards`, where the threshold-event routes actually live, not backend-crud). The DB tunnel is a fourth, optional forward, needed only for the SQL driver-events reader. Confirm a hand-rolled `POST /rosco` reaches RabbitMQ.
+Bring up the three required port-forwards: `kubectl port-forward -n be-crud svc/be-crud-v5 3000:80`, `kubectl port-forward -n integration svc/webhooks-api 8081:80`, and `kubectl port-forward -n snc svc/scorecard-v2-api 3001:80` (the last one is `hapi-server-scorecards`, where the threshold-event routes actually live, not backend-crud). The DB tunnel is a fourth, optional forward, needed only for the SQL driver-events reader. Confirm a hand-rolled `POST /rosco` reaches RabbitMQ.
 
 Acceptance: a manual curl to `localhost:8081/rosco` returns 200. Not part of any automated spec; this suite must never assume the tunnels are already up and must fail with an actionable message when they are not (see `05-VERIFICATION.md`).
 

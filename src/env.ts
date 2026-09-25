@@ -78,7 +78,7 @@ export function assertIntraServiceHost(baseUrl: string): void {
       `CRUD_BASE_URL host is "${host}", but backend-crud only treats the literal "localhost:3000" ` +
         `as an intra-service caller, and this suite sends no auth token. Bind the port-forward to ` +
         `local port 3000 and use http://localhost:3000/api:\n` +
-        `  kubectl port-forward -n be-crud svc/be-crud-v5 3000:3000`,
+        `  kubectl port-forward -n be-crud svc/be-crud-v5 3000:80`,
     );
   }
 }

@@ -19,10 +19,10 @@ import type { ApiClient } from '../api/client';
 import type { Contact, DriverKey, RunContext, Uuid } from '../types';
 import { env, suiteAssetId } from '../env';
 import { DRIVER_NAMES, FIXTURE_PREFIX, FR_LICENSE_NAME } from '../constants';
-import { createAsset } from '../api/assets';
+import { createAsset, resolveAssetCategoryId } from '../api/assets';
 import { associateTrackerWithAccount, createTennaCam2, installTrackerOnAsset } from '../api/trackers';
 import { createContact, getContact, searchContactsByName, setContactEnabled } from '../api/contacts';
-import { accountHasLicence, accountHasRoscoIntegration } from '../api/licences';
+import { accountHasLicence, accountHasRoscoIntegration, licenceNameMatches } from '../api/licences';
 import { waitForDigestionReady } from '../scenario/waits';
 import { DIGESTION_READY_BUDGET_MS, LICENCE_ENABLE_BUDGET_MS, POLL_INTERVAL_MS } from '../scenario/timeouts';
 import { currentRunId, recordCreated } from './manifest';
@@ -237,7 +237,7 @@ export async function setAccountLicenceEnabled(
   enabled: boolean,
 ): Promise<void> {
   const catalog = await api.get<LicenceCatalogEntry[]>('/v5/licenses', { query: { fields: 'id,name' } });
-  const licence = catalog.find((l) => l.name === licenceName);
+  const licence = catalog.find((l) => licenceNameMatches(l.name, licenceName));
   if (!licence) {
     throw new Error(`setAccountLicenceEnabled: no licence named "${licenceName}" exists in /v5/licenses`);
   }
@@ -348,11 +348,12 @@ export async function ensureContacts(api: ApiClient): Promise<Record<DriverKey, 
  * item 2, the new required step). Not part of `../api/trackers.ts`'s contract (that file belongs
  * to Module B and is outside this module's file ownership), so this calls the client directly.
  *
- * VERIFY: request body (assumed empty) and response shape for this verify action; nothing this
- * suite has read from source names it beyond the endpoint path in AGENT-BRIEF revision 2 item 2.
+ * The body is required: `{ certification_passed: boolean }` (backend-crud
+ * tracker_asset_association/v4/schema.js `VerifyTrackerAssociation`, reused by v5). An empty body
+ * is rejected with 422 (observed live on dv3 2026-09-24).
  */
 async function verifyTrackerAssetAssociation(api: ApiClient, installationId: Uuid): Promise<void> {
-  await api.patch<void>(`/v5/tracker-asset-associations/${installationId}/verify`, {});
+  await api.patch<void>(`/v5/tracker-asset-associations/${installationId}/verify`, { certification_passed: true });
 }
 
 /**
@@ -368,7 +369,12 @@ export async function provisionAssetWithTennaCam(
 ): Promise<Omit<RunContext, 'contacts'>> {
   let assetId = existingAssetId;
   if (!assetId) {
-    assetId = await createAsset(api, { name: `${FIXTURE_PREFIX}-${label}-${currentRunId()}` });
+    assetId = await createAsset(api, {
+      name: `${FIXTURE_PREFIX}-${label}-${currentRunId()}`,
+      // Fleet numbers are unique per account (409 "fleet number has been already used").
+      fleet: `${FIXTURE_PREFIX}-${label}-${currentRunId()}`,
+      category_id: await resolveAssetCategoryId(api),
+    });
     recordCreated('asset', assetId, label);
   }
 

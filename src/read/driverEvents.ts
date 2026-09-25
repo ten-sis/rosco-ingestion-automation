@@ -130,8 +130,36 @@ const DRIVER_EVENT_FIELDS = [
   'flags',
 ] as const;
 
+/**
+ * The `fields` the deployed endpoint accepts, read out of its own 422. dv3 (2026-09-24) rejects
+ * `contact_active` and `driver_id` with `keyword: "enum"` on `/fields/<n>` and lists the accepted
+ * set in `params.allowedValues`. Returns undefined for any other error, so only this exact shape
+ * triggers the retry.
+ */
+function allowedFieldsFrom(err: unknown): string[] | undefined {
+  if (!(err instanceof ApiError) || err.status !== 422) return undefined;
+  try {
+    const body = JSON.parse(err.body) as {
+      errors?: Array<{ field?: string; keyword?: string; params?: { allowedValues?: unknown } }>;
+    };
+    const enumError = body.errors?.find((e) => e.keyword === 'enum' && e.field?.startsWith('/fields/'));
+    const allowed = enumError?.params?.allowedValues;
+    return Array.isArray(allowed) && allowed.every((v) => typeof v === 'string') ? (allowed as string[]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 class ApiDriverEventsReader implements DriverEventsReader {
   readonly kind = 'api' as const;
+
+  /**
+   * Starts as the design's full field list. Narrowed once, if the deployed endpoint rejects some
+   * of them: a missing column then reads as null in `toDriverEventRow`, so any expectation on it
+   * (O8's `contactActive: false`) fails as a real product gap instead of the 422 aborting the
+   * scenario before a single event reaches the webhook.
+   */
+  private fields: readonly string[] = DRIVER_EVENT_FIELDS;
 
   constructor(private readonly api: ApiClient) {}
 
@@ -140,12 +168,26 @@ class ApiDriverEventsReader implements DriverEventsReader {
       { field: 'asset_id', filterType: 'text', type: 'equals', value: w.assetId },
       { field: 'timestamp', filterType: 'date', type: 'inRange', values: [w.fromIso, w.toIso] },
     ];
-    try {
-      const response = await this.api.post<SearchResponse>(SEARCH_PATH, {
-        fields: [...DRIVER_EVENT_FIELDS],
+    const search = (fields: readonly string[]): Promise<SearchResponse> =>
+      this.api.post<SearchResponse>(SEARCH_PATH, {
+        fields: [...fields],
         filterModel,
         sortModel: [{ colId: 'received_at', sort: 'asc' }],
         limit: 500,
+      });
+    try {
+      const response = await search(this.fields).catch(async (err: unknown) => {
+        const allowed = allowedFieldsFrom(err);
+        if (!allowed) throw err;
+        const narrowed = this.fields.filter((f) => allowed.includes(f));
+        if (narrowed.length === this.fields.length) throw err;
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[driver-events] ${SEARCH_PATH} does not accept fields ` +
+            `${this.fields.filter((f) => !allowed.includes(f)).join(', ')}; they read as null from now on.`,
+        );
+        this.fields = narrowed;
+        return search(narrowed);
       });
       return response.results.map(toDriverEventRow);
     } catch (err) {

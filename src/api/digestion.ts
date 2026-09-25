@@ -5,13 +5,22 @@ import type { ApiClient } from './client';
 import { env } from '../env';
 import type { Uuid } from '../types';
 
+/**
+ * Shape observed live on dv3 (2026-09-24) for `GET /trackers?make=rosco&serial=<vehicle_id>&
+ * include=secondary`: the PRIMARY tracker's row, with `asset_id`/`account_id` at the top level and
+ * a `secondaryTracker` block that carries only `id`, `serial` and `device_id`. An unknown serial
+ * is a 404.
+ */
 interface DigestionSecondaryTracker {
   id?: Uuid;
-  assetId?: Uuid;
-  accountId?: Uuid;
+  serial?: string;
+  device_id?: string;
 }
 
 interface DigestionTrackerResponse {
+  id?: Uuid;
+  asset_id?: Uuid | null;
+  account_id?: Uuid | null;
   secondaryTracker?: DigestionSecondaryTracker | null;
 }
 
@@ -43,10 +52,13 @@ export async function resolveRoscoDevice(
       { query: { make: 'rosco', serial: vehicleId, include: 'secondary' } },
     );
     const secondary = response.secondaryTracker;
-    if (secondary?.id === undefined || secondary.assetId === undefined || secondary.accountId === undefined) {
+    const trackerId = secondary?.id ?? response.id;
+    // Resolved only once the camera maps back to a tracker that is installed on an asset in an
+    // account: that is the state the ingestion branch needs before it accepts an identification.
+    if (secondary?.device_id !== vehicleId || !trackerId || !response.asset_id || !response.account_id) {
       return null;
     }
-    return { tracker_id: secondary.id, asset_id: secondary.assetId, account_id: secondary.accountId };
+    return { tracker_id: trackerId, asset_id: response.asset_id, account_id: response.account_id };
   } catch (err) {
     if (isNotFoundError(err)) {
       return null;

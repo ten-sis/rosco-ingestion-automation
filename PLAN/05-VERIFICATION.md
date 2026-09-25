@@ -4,7 +4,7 @@
 
 That endpoint, and the `rosco_driver_events` table behind it, do not exist yet. The assertion layer is an interface, `DriverEventsReader` (module C, `src/read/driverEvents.ts`), with two implementations, selected by an environment variable so no scenario file has to know which one is active:
 
-- `SqlDriverEventsReader` (default): read-only `pg` over the SSH tunnel on `localhost:54200`. Reads `is_assignee_source`, `trip_id`, `flags`, `trip_driver_set_at`, `received_at`. This is also the only way to prove O9's partial unique index actually fired, since the application-level claim logic alone would look identical whether or not the constraint exists.
+- `SqlDriverEventsReader` (default): read-only `pg` over the SSH tunnel on `localhost:54334`. Reads `is_assignee_source`, `trip_id`, `flags`, `trip_driver_set_at`, `received_at`. This is also the only way to prove O9's partial unique index actually fired, since the application-level claim logic alone would look identical whether or not the constraint exists.
 - `ApiDriverEventsReader`: `POST /api/v5/rosco-driver-events/search`, written against `claude-tasks/TS-43579-facial-recognition-hld/openapi/backend-crud-rosco-driver-events.openapi.yaml`, switched on by `DRIVER_EVENTS_READER=api` once the endpoint ships. Every scenario in this module asserts through the `DriverEventExpectation` shape in `src/scenario/types.ts`, not through either reader directly, so this switch should require no changes to any file under `src/scenarios/`.
 
 ## Everything else
@@ -55,7 +55,7 @@ Three tunnels, all required before any scenario spec runs against a real environ
 
 ```bash
 # backend-crud, intra-service path (no auth). MUST bind local port 3000 exactly — see README.md
-kubectl port-forward -n be-crud svc/be-crud-v5 3000:3000
+kubectl port-forward -n be-crud svc/be-crud-v5 3000:80
 
 # webhook injection, in-cluster route, no auth, no schema gate
 kubectl port-forward -n integration svc/webhooks-api 8081:80

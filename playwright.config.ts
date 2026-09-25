@@ -63,19 +63,30 @@ export default defineConfig({
   },
   projects: [
     {
+      // Read-only gate: every tunnel answers, the account is the expected one and already has the
+      // rosco integration and the FR licence. Runs first, with or without ALLOW_MUTATIONS, and
+      // every other project depends on it, so a dead port-forward fails here in seconds instead of
+      // as a timeout deep inside a scenario. `scripts/tunnels.sh up` opens what it checks.
+      name: 'connectivity',
+      testMatch: /connectivity\/.*\.spec\.ts/,
+    },
+    {
       // Pure, offline, in-process regression specs (e.g. the fixture-playback/planner agreement
-      // check). No `preflight` dependency: these never touch the network or a live account.
+      // check). They never touch the network, but still wait on `connectivity` so that one command
+      // checks everything before any test runs. Offline: `npm run test:unit` (`--no-deps`).
       name: 'unit',
+      dependencies: ['connectivity'],
       testMatch: /unit\/.*\.spec\.ts/,
     },
     {
       name: 'preflight',
+      dependencies: ['connectivity'],
       testMatch: /setup\/.*\.spec\.ts/,
     },
     {
       name: 'operation',
       dependencies: ['preflight'],
-      testIgnore: [/setup\/.*\.spec\.ts/, /unit\/.*\.spec\.ts/],
+      testIgnore: [/setup\/.*\.spec\.ts/, /unit\/.*\.spec\.ts/, /connectivity\/.*\.spec\.ts/],
     },
   ],
 });
