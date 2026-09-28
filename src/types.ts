@@ -145,10 +145,10 @@ export interface RoscoDriverWebhookPayload {
   vehicle_id: string;
   name: DriverEventType;
   timestamp: string;
-  location: { lat: string | number; lon: string | number };
+  /** Strings, as Rosco sends them. `POST /v5/rosco-driver-events/publish` rejects numbers. */
+  location: { lat: string; lon: string };
   /** Absent on unDrv. */
   driver_guid?: string;
-  driverId?: string;
   driver_fn?: string;
   driver_ln?: string;
   driver_name?: string;

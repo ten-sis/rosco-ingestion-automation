@@ -34,16 +34,16 @@
  * `user_id` OR `account_id` is falsy. `user_id` is never falsy (session.js:32 substitutes
  * TENNA_MICROSERVICE_USER_ID), so in practice the bypass fires only when `account_id` is omitted --
  * which also gives up `super`/`admin`, since those are 1 only when the header account equals
- * TENNA_ACCOUNT_ID (app/utils/permissions.js:93,113-114). `POST /v5/automation-tracker` and
- * `POST /v5/rosco-events/publish` are both `permission(["super","admin"])`
- * (automation-tracker/v1/index.js:10, rosco_events/v5/index.js:79), so from this client they can
- * only ever succeed through that bypass, never through a licensed account's ordinary permissions.
- * Pass `{ omitAccountId: true }` (see `ApiCallOptions` below) for exactly those two calls. Omitting
- * the header scopes the write by the payload rather than by the session, which is exactly how the
- * real ingestion pipeline calls them.
+ * TENNA_ACCOUNT_ID (app/utils/permissions.js:93,113-114). `POST /v5/automation-tracker` is
+ * `permission(["super","admin"])` (automation-tracker/v1/index.js:10), so from this client it can
+ * only succeed through that bypass, never through a licensed account's ordinary permissions.
+ * Pass `{ omitAccountId: true }` (see `ApiCallOptions` below) for that call. Omitting the header
+ * scopes the write by the payload rather than by the session, which is exactly how the real
+ * ingestion pipeline calls it. `POST /v5/rosco-driver-events/publish` is super/admin too, but it
+ * cannot use the bypass (see `emit/becrud.ts`), so it goes out as the Tenna account instead.
  */
 
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, APIResponse } from '@playwright/test';
 import { env, assertNotProduction } from '../env';
 import { REQUESTOR } from '../constants';
 
@@ -53,8 +53,8 @@ export interface ApiCallOptions {
   /** Default: any 2xx. Pass a number or a list to accept something else, e.g. 404. */
   expectStatus?: number | number[];
   /**
-   * Omits the `account_id` header entirely, rather than sending it as-is. Needed only for the
-   * two `permission(["super","admin"])` endpoints that this client can otherwise never satisfy --
+   * Omits the `account_id` header entirely, rather than sending it as-is. Needed only for
+   * `POST /v5/automation-tracker`, which this client can otherwise never satisfy --
    * see the class-level comment above for exactly why. Default: false (send `account_id`).
    */
   omitAccountId?: boolean;

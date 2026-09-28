@@ -63,7 +63,7 @@ export function buildDriverEventPayload(input: {
     vehicle_id: input.vehicleId,
     name: eventType,
     timestamp: input.timestampIso,
-    location: { lat: input.lat ?? 0, lon: input.lon ?? 0 },
+    location: { lat: String(input.lat ?? 0), lon: String(input.lon ?? 0) },
   };
 
   if (!isIdentified) {
@@ -73,7 +73,6 @@ export function buildDriverEventPayload(input: {
   return {
     ...base,
     driver_guid: input.driverGuid as string,
-    driverId: input.driverGuid as string,
     ...(input.driverFirst ? { driver_fn: input.driverFirst } : {}),
     ...(input.driverLast ? { driver_ln: input.driverLast } : {}),
     ...(fullName ? { driver_name: fullName } : {}),

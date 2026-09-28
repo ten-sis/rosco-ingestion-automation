@@ -48,6 +48,9 @@ const PRODUCTION_ENV_NAMES = ['prd', 'prod', 'production'];
 const NON_LOCALHOST_DB_ACK_VAR = 'ACK_NON_LOCALHOST_DB';
 const LOCALHOST_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
 
+/** backend-crud's TENNA_ACCOUNT_ID on dv3 (`backend-crud/bin/publishRoscoDriverEventsDv3.sh`). */
+const DV3_TENNA_ACCOUNT_ID = '5139da63-e480-42b5-a3de-1979fa559338';
+
 /** Throws when a value looks like production. Called on every host the suite is pointed at. */
 export function assertNotProduction(label: string, value: string): void {
   const lowered = value.toLowerCase();
@@ -101,20 +104,37 @@ export interface SuiteEnv {
   envKey: string;
   /** backend-crud over the port-forward. The host MUST be localhost:3000, see api/client.ts. */
   crudBaseUrl: string;
-  /** The webhooks service over its own port-forward. */
+  /** The webhooks service over its own port-forward. `WEBHOOK_PORT`, default 8081. */
   webhookBaseUrl: string;
-  /** hapi-server-scorecards over its own port-forward. Serves /v2/threshold-events/*. */
+  /**
+   * hapi-server-scorecards over its own port-forward. Serves /v2/threshold-events/*.
+   * `SCORECARDS_PORT`, default 3001.
+   */
   scorecardsBaseUrl: string;
-  /** hapi-plugin-digestion-api over its own port-forward. Resolves the Rosco secondary tracker. */
+  /**
+   * hapi-plugin-digestion-api over its own port-forward. Resolves the Rosco secondary tracker.
+   * `DIGESTION_PORT`, default 3002.
+   */
   digestionBaseUrl: string;
   /** Required. The account every test acts on. */
   accountId: string;
-  /** Optional pinning, for iterating against an asset that already exists. */
+  /**
+   * Optional pinning, for iterating against an asset that already exists. Its installed fixture
+   * TennaCAM is reused, so no tracker pin is needed.
+   */
   assetId: string | undefined;
-  trackerId: string | undefined;
-  vehicleId: string | undefined;
+  /**
+   * Optional. Inserted into every fixture asset's fleet key (`fixtures/identity.ts`), so two people
+   * running the same fleet on one account at the same time get separate assets.
+   */
+  fixtureNamespace: string | undefined;
   /** Per-suite overrides are read through `suiteAssetId()`, not from here. */
   emitter: 'webhook' | 'becrud';
+  /**
+   * The Tenna account, sent as `account_id` by the becrud emitter. Its publish route needs
+   * super/admin, which only this account has. Defaults to dv3's Tenna account.
+   */
+  tennaAccountId: string;
   driverEventsReader: 'api' | 'sql';
   dbUrl: string | undefined;
   allowMutations: boolean;
@@ -165,14 +185,14 @@ export const env: SuiteEnv = {
   get assetId(): string | undefined {
     return optional('ASSET_ID');
   },
-  get trackerId(): string | undefined {
-    return optional('TRACKER_ID');
-  },
-  get vehicleId(): string | undefined {
-    return optional('VEHICLE_ID');
+  get fixtureNamespace(): string | undefined {
+    return optional('FIXTURE_NAMESPACE');
   },
   get emitter(): 'webhook' | 'becrud' {
     return process.env.EMITTER === 'becrud' ? 'becrud' : 'webhook';
+  },
+  get tennaAccountId(): string {
+    return optional('TENNA_ACCOUNT_ID') ?? DV3_TENNA_ACCOUNT_ID;
   },
   get driverEventsReader(): 'api' | 'sql' {
     return process.env.DRIVER_EVENTS_READER === 'sql' ? 'sql' : 'api';

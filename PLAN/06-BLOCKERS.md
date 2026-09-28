@@ -4,7 +4,6 @@ One row per blocker: what is blocked, which cases it blocks, what must ship, who
 
 | Blocked | Cases | What must ship | Owner |
 |---|---|---|---|
-| **`POST /v5/rosco-events/publish` schema, the one thing between this suite and CI** | Nothing is blocked outright (`EMITTER=webhook` over the port-forward is the working path meanwhile — see below), but there is no port-forward-free path today | The schema is expected to carry Types 6 and 7 but does not: it requires `event_id` and pins `name` to the enum `["events"]`. Widen it to accept `event_id` and a `name` outside that enum | Engineering (backend-crud), owns the CI story |
 | The whole write path | O2, O3.1-3.5, O4, O5, O6, O7.1, O7.2, O8, O9, O12a-f, O13, O15, O16, O17, O18, O19 | `rosco_driver_events` table, the identification consumer (trip lookup, claim, both writes), IN-2 in the design doc's Work Breakdown | Engineering (backend, `hapi-server-rosco-ingestion-rmq`) |
 | Trip-end reassignment | O3.1, O3.3, O3.4, O6, O7.1, O7.2, O8, O13 | The trip-end consumer: search window (floored at trip start; see O14 below), award step, contact-status re-check, threshold reassignment | Engineering, same repository |
 | Trip-update guard | Every case that writes the trip assignee | The blocking prerequisite in `backend-crud`, called out in the design doc's Deployment Plan as gating steps 10 and 12; all three consumers are "unsafe without it" | Engineering, `backend-crud` |
@@ -14,7 +13,7 @@ One row per blocker: what is blocked, which cases it blocks, what must ship, who
 | O12e trip-type fixture | O12e | The telemetry emitter (module C) needs a way to produce a heartbeat or virtual trip on demand; no Step kind in `src/scenario/types.ts` can select trip type | Module C, or move to `OUT-OF-SCOPE.md` if it cannot |
 | O24 adjacent-publish ordering | O24 | A way to force a `trip-started` republish immediately before `trip-ended` on the same trip; no Step kind expresses "emit a duplicate lifecycle event out of band" | Module C/D, or move to `OUT-OF-SCOPE.md` if it cannot |
 
-Resolved and removed from this table since the previous revision of this pack: the licence toggle path (O18, O19) is enabled through the API by the preflight step, not a manual CS step; O20 is no longer an automated case at all (see `OUT-OF-SCOPE.md`), so there is nothing left to block.
+Resolved and removed from this table since the previous revision of this pack: the port-forward-free emitter. `POST /v5/rosco-events/publish` was not widened. backend-crud added `POST /v5/rosco-driver-events/publish` for Types 6 and 7 instead (TS-43926), and `EMITTER=becrud` now targets it. Also: the licence toggle path (O18, O19) is enabled through the API by the preflight step, not a manual CS step; O20 is no longer an automated case at all (see `OUT-OF-SCOPE.md`), so there is nothing left to block.
 
 ## O14, resolved
 
