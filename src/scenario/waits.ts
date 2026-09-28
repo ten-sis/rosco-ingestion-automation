@@ -358,8 +358,6 @@ function tripRefAssetId(sc: ScenarioContext, ref: TripExpectation['tripRef']): P
  */
 export async function assertTrip(exp: TripExpectation, sc: ScenarioContext): Promise<void> {
   const key = serializeTripRef(exp.tripRef);
-  const baseline = getUnchangedTripAssignee(sc, key);
-  const expectedAssignee = resolveAssigneeValue(exp.assignee, sc, baseline);
 
   let trip: Trip | undefined;
   await expect
@@ -372,6 +370,10 @@ export async function assertTrip(exp: TripExpectation, sc: ScenarioContext): Pro
     )
     .toBe(true);
   if (!trip) throw new Error(`assertTrip: trip ${key} never appeared within ${TRIP_APPEARS_BUDGET_MS}ms`);
+
+  // Read after the trip exists: an 'unchanged' baseline for a trip created during the timeline is
+  // only captured once the trip appears (runner.ts, capturePendingTripBaselines).
+  const expectedAssignee = resolveAssigneeValue(exp.assignee, sc, getUnchangedTripAssignee(sc, key));
 
   const readAssignee = async () => (await resolveTripRef(sc, exp.tripRef)).assignee_id;
   if (exp.assignee === 'unchanged') {

@@ -124,9 +124,19 @@ interface ExecutionState {
   identPayloads: Map<string, RoscoDriverWebhookPayload>;
   /** assetId -> contact id (or null) captured before step 1, for `assetAssignee: 'unchanged'`. */
   unchangedAssetAssignee: Map<Uuid, Uuid | null>;
-  /** serialized `TripRef` -> contact id (or null) captured before step 1 (or `null` if the trip
-   *  did not exist yet at that point — see `runner.ts` for why that is the chosen baseline). */
+  /**
+   * serialized `TripRef` -> the trip's contact id (or null) for `assignee: 'unchanged'`. Captured
+   * before step 1 when the trip already exists, otherwise as soon as it first appears (see
+   * `pendingTripBaselines`).
+   */
   unchangedTripAssignee: Map<string, Uuid | null>;
+  /**
+   * serialized `TripRef` -> the ref itself, for `'unchanged'` trips that did not exist yet before
+   * step 1. Their baseline is the assignee the trip starts with, which dv3 copies from the asset's
+   * assignee when the trip is created (observed 2026-09-28, O7.2). The runner captures it once the
+   * trip appears and before any step that could write an assignee.
+   */
+  pendingTripBaselines: Map<string, TripRef>;
 }
 
 const executionStates = new WeakMap<ScenarioContext, ExecutionState>();
@@ -145,6 +155,7 @@ export function beginExecution(sc: ScenarioContext, timeline: readonly Step[]): 
     identPayloads: new Map(),
     unchangedAssetAssignee: new Map(),
     unchangedTripAssignee: new Map(),
+    pendingTripBaselines: new Map(),
   });
 }
 
@@ -243,7 +254,19 @@ export function serializeTripRef(ref: TripRef): string {
 }
 
 export function recordUnchangedTripAssignee(sc: ScenarioContext, key: string, value: Uuid | null): void {
-  stateFor(sc).unchangedTripAssignee.set(key, value);
+  const state = stateFor(sc);
+  state.unchangedTripAssignee.set(key, value);
+  state.pendingTripBaselines.delete(key);
+}
+
+/** Defers a trip's `'unchanged'` baseline until the trip exists. See `pendingTripBaselines`. */
+export function markTripBaselinePending(sc: ScenarioContext, key: string, ref: TripRef): void {
+  stateFor(sc).pendingTripBaselines.set(key, ref);
+}
+
+/** The `'unchanged'` trip baselines still waiting for their trip to appear. */
+export function getPendingTripBaselines(sc: ScenarioContext): ReadonlyMap<string, TripRef> {
+  return stateFor(sc).pendingTripBaselines;
 }
 
 export function getUnchangedTripAssignee(sc: ScenarioContext, key: string): Uuid | null | undefined {

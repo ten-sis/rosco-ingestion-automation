@@ -48,8 +48,10 @@ import {
   capturePreExistingDriverEventRows,
   capturePreExistingTrips,
   getIdentPayload,
+  getPendingTripBaselines,
   getUnchangedAssetAssignee,
   logicalTime,
+  markTripBaselinePending,
   recordIdentDispatched,
   recordIdentPayload,
   recordUnchangedAssetAssignee,
@@ -193,8 +195,24 @@ async function runTimelineExecution(scenario: Scenario, baseSc: ScenarioContext,
   await applyPreconditions(scenario, sc);
   await captureUnchangedSnapshots(scenario, sc);
 
+
   const raceMode = isRaceScenario(scenario);
   const { timeline } = scenario;
+  // Once a trip can exist, pending 'unchanged' trip baselines are captured before anything that
+  // could change an assignee runs, and before every assertion (see capturePendingTripBaselines).
+  let tripStartSent = false;
+  const beforeSteps = async (steps: readonly Step[]): Promise<void> => {
+    if (tripStartSent && steps.some((s) => ASSIGNEE_AFFECTING_KINDS.has(s.kind))) {
+      await capturePendingTripBaselines(sc);
+    }
+  };
+  const afterSteps = (steps: readonly Step[]): void => {
+    if (steps.some((s) => s.kind === 'ignitionOn')) tripStartSent = true;
+  };
+  const beforeAssertion = async (): Promise<void> => {
+    if (tripStartSent) await capturePendingTripBaselines(sc);
+  };
+
   for (let i = 0; i < timeline.length; i++) {
     const step = timeline[i];
     if (!step) continue; // unreachable given the loop bound; satisfies noUncheckedIndexedAccess
@@ -206,20 +224,31 @@ async function runTimelineExecution(scenario: Scenario, baseSc: ScenarioContext,
       // repeats, so both interleavings actually get exercised rather than always resolving the
       // same way (see the doc comment above `isRaceScenario`).
       const [firstStep, secondStep] = rep % 2 === 0 ? [step, next] : [next, step];
+      await beforeSteps([firstStep, secondStep]);
       await Promise.all([deliverStep(sc, firstStep), deliverStep(sc, secondStep)]);
+      afterSteps([firstStep, secondStep]);
       for (const entry of scenario.expectAfterStep ?? []) {
-        if (entry.afterIndex === i || entry.afterIndex === i + 1) await assertExpectation(entry.expect, sc);
+        if (entry.afterIndex === i || entry.afterIndex === i + 1) {
+          await beforeAssertion();
+          await assertExpectation(entry.expect, sc);
+        }
       }
       i += 1; // both steps consumed
       continue;
     }
 
+    await beforeSteps([step]);
     await deliverStep(sc, step);
+    afterSteps([step]);
     for (const entry of scenario.expectAfterStep ?? []) {
-      if (entry.afterIndex === i) await assertExpectation(entry.expect, sc);
+      if (entry.afterIndex === i) {
+        await beforeAssertion();
+        await assertExpectation(entry.expect, sc);
+      }
     }
   }
 
+  await beforeAssertion();
   await assertExpectation(scenario.expect, sc);
 }
 
@@ -271,12 +300,54 @@ async function captureUnchangedSnapshots(scenario: Scenario, sc: ScenarioContext
     for (const tripExpectation of expectation.trips ?? []) {
       if (tripExpectation.assignee === 'unchanged') {
         const key = serializeTripRef(tripExpectation.tripRef);
-        const baseline = await resolveTripRef(sc, tripExpectation.tripRef)
-          .then((t) => t.assignee_id)
-          .catch(() => null);
-        recordUnchangedTripAssignee(sc, key, baseline);
+        const existing = await resolveTripRef(sc, tripExpectation.tripRef).catch(() => undefined);
+        if (existing) {
+          recordUnchangedTripAssignee(sc, key, existing.assignee_id);
+        } else {
+          // Not created yet. Its baseline is the assignee it starts with, captured once it
+          // appears (`capturePendingTripBaselines`), not null: dv3 gives a new trip the asset's
+          // assignee, so null would fail against a trip nothing ever changed (O7.2).
+          markTripBaselinePending(sc, key, tripExpectation.tripRef);
+        }
       }
     }
+  }
+}
+
+/** Step kinds that can write an asset, trip or contact state an `'unchanged'` check compares. */
+const ASSIGNEE_AFFECTING_KINDS: ReadonlySet<Step['kind']> = new Set([
+  'ident',
+  'patchAssetAssignee',
+  'patchTripAssignee',
+  'deactivateContact',
+  'reactivateContact',
+  'transferViolations',
+]);
+
+/**
+ * Records the starting assignee of every `'unchanged'` trip that did not exist before step 1.
+ * Called once a trip can exist (an `ignitionOn` has been sent), before any step that could change
+ * an assignee and before any assertion, so the baseline is the trip's own starting value and not
+ * one a later step wrote. Waits up to TRIP_APPEARS_BUDGET_MS for the trip to appear.
+ */
+async function capturePendingTripBaselines(sc: ScenarioContext): Promise<void> {
+  for (const [key, ref] of [...getPendingTripBaselines(sc)]) {
+    let trip: Awaited<ReturnType<typeof resolveTripRef>> | undefined;
+    try {
+      await expect
+        .poll(
+          async () => {
+            trip = await resolveTripRef(sc, ref).catch(() => undefined);
+            return trip !== undefined;
+          },
+          { timeout: TRIP_APPEARS_BUDGET_MS, intervals: [POLL_INTERVAL_MS] },
+        )
+        .toBe(true);
+    } catch {
+      // Leave it pending. assertTrip reports the missing trip with its own message.
+      continue;
+    }
+    if (trip) recordUnchangedTripAssignee(sc, key, trip.assignee_id);
   }
 }
 
