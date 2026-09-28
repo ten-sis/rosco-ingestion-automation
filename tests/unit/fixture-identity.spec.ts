@@ -6,7 +6,7 @@
  * Pure functions only. No `ApiClient`, no HTTP. Not tagged `@mutating`.
  */
 import { test, expect } from '@playwright/test';
-import { fixtureAssetKey, isFixtureTennaCam } from '../../src/fixtures/identity';
+import { fixtureAssetKey, fixtureContactEmail, isFixtureTennaCam } from '../../src/fixtures/identity';
 
 test.describe('fixtureAssetKey', () => {
   test('is the prefix plus the label, with no run id', () => {
@@ -48,5 +48,21 @@ test.describe('isFixtureTennaCam', () => {
 
   test('rejects another tracker type with fixture-looking serials', () => {
     expect(isFixtureTennaCam({ ...fixture, type: 'TennaCAM OBDII' })).toBe(false);
+  });
+});
+
+test.describe('fixtureContactEmail', () => {
+  const accountId = '24beb019-b03f-4452-b145-3dbd6d5e30b3';
+
+  test('is a reserved-domain address that carries the account and the driver', () => {
+    expect(fixtureContactEmail(accountId, 'A')).toBe(`frtest+${accountId}-a@example.com`);
+  });
+
+  test('differs per account, since contact emails are unique across accounts', () => {
+    expect(fixtureContactEmail(accountId, 'A')).not.toBe(fixtureContactEmail('5139da63-e480-42b5-a3de-1979fa559338', 'A'));
+  });
+
+  test('differs per driver', () => {
+    expect(fixtureContactEmail(accountId, 'A')).not.toBe(fixtureContactEmail(accountId, 'B'));
   });
 });

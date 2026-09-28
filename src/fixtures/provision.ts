@@ -35,7 +35,7 @@ import {
   installTrackerOnAsset,
 } from '../api/trackers';
 import { getTrip, searchTrips } from '../api/trips';
-import { createContact, getContact, searchContactsByName, setContactEnabled } from '../api/contacts';
+import { createContact, getContact, patchContact, searchContactsByName } from '../api/contacts';
 import { accountHasLicence, accountHasRoscoIntegration, licenceNameMatches } from '../api/licences';
 import { createTelemetryEmitter } from '../emit/telemetry';
 import { waitForDigestionReady } from '../scenario/waits';
@@ -45,7 +45,13 @@ import {
   POLL_INTERVAL_MS,
   TRIP_END_BUDGET_MS,
 } from '../scenario/timeouts';
-import { FIXTURE_GMS_PREFIX, FIXTURE_VEHICLE_PREFIX, fixtureAssetKey, isFixtureTennaCam } from './identity';
+import {
+  FIXTURE_GMS_PREFIX,
+  FIXTURE_VEHICLE_PREFIX,
+  fixtureAssetKey,
+  fixtureContactEmail,
+  isFixtureTennaCam,
+} from './identity';
 import { currentRunId, recordCreated, recordReused } from './manifest';
 
 const DRIVER_KEYS: readonly DriverKey[] = ['A', 'B', 'C', 'D'];
@@ -343,20 +349,29 @@ export async function ensureContacts(api: ApiClient): Promise<Record<DriverKey, 
   for (const key of DRIVER_KEYS) {
     const name = DRIVER_NAMES[key];
     const taggedFirst = `${FIXTURE_PREFIX} ${name.first}`;
-    let contact = existing.find((c) => c.first_name === taggedFirst && c.last_name === name.last);
-    const found = contact !== undefined;
-    if (!contact) {
-      const id = await createContact(api, taggedFirst, name.last);
-      contact = await getContact(api, id);
+    const email = fixtureContactEmail(api.accountId, key);
+    const found = existing.find((c) => c.first_name === taggedFirst && c.last_name === name.last);
+    let contact: Contact;
+    if (!found) {
+      const id = await createContact(api, taggedFirst, name.last, email);
+      contact = { ...(await getContact(api, id)), email };
       recordCreated('contact', contact.id, key);
-    } else if (!contact.enabled) {
+    } else {
       // A disabled contact left over from a stale prior run would silently corrupt every scenario
       // that assumes a clean baseline; scenarios that need a disabled contact do so explicitly via
-      // a `deactivateContact` step, so provisioning always resets to enabled.
-      await setContactEnabled(api, contact.id, true);
-      contact = { ...contact, enabled: true };
+      // a `deactivateContact` step, so provisioning always resets to enabled. A contact created
+      // before fixture drivers had an email gets one here, in the same PATCH: backend-crud refuses
+      // any update to a contact with neither an email nor a mobile phone.
+      const changes = {
+        ...(found.enabled ? {} : { enabled: true }),
+        ...(found.email ? {} : { email }),
+      };
+      if (Object.keys(changes).length > 0) {
+        await patchContact(api, found.id, changes);
+      }
+      contact = { ...found, ...changes };
+      recordReused('contact', contact.id, key);
     }
-    if (found) recordReused('contact', contact.id, key);
     result[key] = contact;
   }
   return result;

@@ -27,6 +27,23 @@ export function fixtureAssetKey(label: string, namespace?: string): string {
 }
 
 /**
+ * Domain for fixture contact emails. `example.com` is reserved (RFC 2606), so nothing is ever
+ * delivered to these addresses.
+ */
+export const FIXTURE_EMAIL_DOMAIN = 'example.com';
+
+/**
+ * The email of fixture driver `key` on `accountId`. backend-crud rejects every update to a contact
+ * with no email and no mobile phone ("Must have email or phone", `Contact.js`'s `beforeUpdate`
+ * hook), so without one a fixture driver can never be deactivated or re-enabled. The account id
+ * is in the address because contact emails are unique across all accounts, and `fr-licence` has
+ * its own four drivers on its own account.
+ */
+export function fixtureContactEmail(accountId: string, key: string): string {
+  return `frtest+${accountId}-${key.toLowerCase()}@${FIXTURE_EMAIL_DOMAIN}`;
+}
+
+/**
  * True when `tracker` is a TennaCAM 2.0 this suite minted, and therefore safe to drive telemetry
  * and driver events through. Anything else installed on a fixture asset is a real device someone
  * put there, and provisioning refuses to touch it.

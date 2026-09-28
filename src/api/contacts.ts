@@ -44,7 +44,7 @@ const MAX_CONTACTS_SCANNED = 2000;
  * no `deleted_at` (see the doc comment on `Contact` in `types.ts` for why that field was dropped
  * from the type rather than requested here).
  */
-const CONTACT_SEARCH_FIELDS = ['id', 'first_name', 'last_name', 'enabled'] as const;
+const CONTACT_SEARCH_FIELDS = ['id', 'first_name', 'last_name', 'email', 'enabled'] as const;
 
 /**
  * Pages `POST /v5/contacts/search` to exhaustion, or until `MAX_CONTACTS_SCANNED` is hit.
@@ -103,11 +103,12 @@ export async function searchContactsByName(api: ApiClient, namePrefix: string): 
  * assets/trackers). Using type "craft" with an empty tags array as the fixture default —
  * confirm this account's contact-type configuration accepts it.
  */
-export async function createContact(api: ApiClient, first: string, last: string): Promise<Uuid> {
+export async function createContact(api: ApiClient, first: string, last: string, email: string): Promise<Uuid> {
   const contact = await api.post<ApiContactFields>('/v5/contacts', {
     type: 'craft',
     first_name: first,
     last_name: last,
+    email,
     tags: [],
   });
   return contact.id;
@@ -123,7 +124,20 @@ export async function getContact(api: ApiClient, id: Uuid): Promise<Contact> {
  * PATCH /v5/contacts takes no id segment: the body is an array, and each element carries its
  * own id. Confirmed at contact/v5/index.js:40 (`router.patch("/", ...)`) and
  * contact/v4/schema.js:150-161 (`patch` schema: `type: "array"`, each item `required: ["id"]`).
+ *
+ * Every update fails with 400 "Must have email or phone" on a contact that has neither
+ * (`Contact.js`'s `beforeUpdate` hook), so an update that adds the missing email has to carry it
+ * in this same body.
  */
+export async function patchContact(
+  api: ApiClient,
+  id: Uuid,
+  changes: { enabled?: boolean; email?: string },
+): Promise<void> {
+  await api.patch<void>('/v5/contacts', [{ id, ...changes }]);
+}
+
+/** Enables or disables a contact. The contact must already have an email or mobile phone. */
 export async function setContactEnabled(api: ApiClient, id: Uuid, enabled: boolean): Promise<void> {
-  await api.patch<void>('/v5/contacts', [{ id, enabled }]);
+  await patchContact(api, id, { enabled });
 }

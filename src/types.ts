@@ -33,6 +33,8 @@ export interface Contact {
   id: Uuid;
   first_name: string;
   last_name: string;
+  /** Null on fixture contacts created before provisioning started giving them one. */
+  email: string | null;
   enabled: boolean;
   deleted_at: null;
 }
