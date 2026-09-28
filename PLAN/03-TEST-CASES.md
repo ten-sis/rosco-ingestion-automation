@@ -4,7 +4,11 @@ One section per O-case. `A`, `B`, `C`, `D` are the four provisioned driver conta
 
 ## O1 — Real hardware, both event types, end to end
 
-Manual. Priority P0. Needs a TennaCAM 2.0 on a drivable test vehicle producing real Type 6 and Type 7 events; no webhook emulation substitutes for it. Tracked in `TRACEABILITY.md` as `manual` and detailed in `OUT-OF-SCOPE.md`.
+Priority P0. Runs simulated in `o-live.spec.ts`, compiled from `fixtures/O1-happy-path-both-event-types.json`: one open trip, HARDBRAKE at 45 before any identification, a Type 6 (unDrv) at 75, a Type 7 (identDrv) for A at 105, HARDACCEL at 150, trip end at 200.
+Preconditions: asset assignee B.
+Checkpoints: after the Type 6 settles, the asset assignee is unchanged and one unlinked unDrv row exists. After A's identification, the asset and trip assignees are A.
+Expected end state: asset A, trip A, the unDrv row still unlinked, A's identDrv row linked and the assignee source, and both violations on A.
+Caveat: simulated, not a real tracker. The real-hardware check needs a TennaCAM 2.0 on a drivable vehicle producing real Type 6 and Type 7 events, and stays manual (`OUT-OF-SCOPE.md`).
 
 ## O2 — Live identification during an open trip (`o-live.spec.ts`)
 
@@ -102,7 +106,7 @@ What must ship first: the asset-write timestamp guard specifically, since this i
 
 Preconditions: none.
 Timeline: identify A while unlinked (no trip exists yet, so no claim is decided at insert); deactivate A; then run and close a trip that covers A's timestamp.
-Expected end state: the trip-end consumer's award step finds A ineligible (`contact_active` true and not soft-deleted is required to be selected as the winner) and stops before any write. No asset write, no trip write, no reassignment. `flags.contact_inactive` on the row stays false, because that flag is the insert-time snapshot (A was active when the row was created) and the guard that actually blocks the award is a live re-check that leaves no flag of its own.
+Expected end state: A's row is eligible (A was active when it was written), so trip end awards it the claim, then the contact-status guard re-checks A's live state, finds A deactivated, and skips every write. No asset write, no trip write, no reassignment. The row carries no inactive flag, because the consumer records contact status only at insert (`flags.contact_is_active`, written only when false). The runner re-enables A when the scenario ends.
 Negative control: the checkpoint right after the identification (unlinked, `is_assignee_source` null) before deactivation and the trip even exist.
 What must ship first: the trip-end consumer's contact-status guard, specifically the live re-check rather than the row's own snapshot.
 
@@ -112,7 +116,7 @@ Preconditions: none.
 Timeline: identify A and end the trip at effectively the same real-world instant, five times over.
 Expected end state: exactly one `rosco_driver_events` row carries `is_assignee_source` true regardless of arrival order; asset assignee, trip assignee and threshold attribution all converge on A.
 Negative control: a checkpoint right after ignition-on, before the race, confirming nothing was assigned yet.
-What must ship first: the advisory lock and its partial-unique-index backstop. See the naming note in `src/scenarios/race.ts` and `06-BLOCKERS.md`: this is the design doc's O10 (trip-end award race) by mechanism, filed under the label O9 because that is what this suite's own plan calls it. The design doc's own O9 (two concurrent identifications on one trip, no trip-end involved) and its O10 label are both left uncovered by this module.
+What must ship first: the advisory lock and its partial-unique-index backstop. This matches the design doc's current O9 row (identification and trip end fired at the same time, run several times). See `06-BLOCKERS.md` for the older numbering this replaced.
 
 ## O12a — Trip lookup: open trip covers (`o-trip-lookup.spec.ts`)
 
@@ -137,6 +141,14 @@ A trip whose `type` is not `normal` covering the identification's timestamp. Beh
 ## O12f — Trip lookup: trip created after its own start (`o-trip-lookup.spec.ts`)
 
 Deliver an identification before any trip exists; then create a trip, backdated, whose `start_date` precedes the identification. Linked at trip end, because the lookup orders by `start_date`, not by row-creation time. Same shape as O3.1; this case's distinguishing point is the ordering guarantee specifically.
+
+## O8b — Identification for a contact already disabled when it arrives (`o-guards.spec.ts`)
+
+Compiled from `fixtures/O8b-contact-disabled-before-identification.json`. Maps to the doc's O8 row; not a separate row in its table.
+Preconditions: asset assignee B.
+Timeline: deactivate A; start a trip (HARDBRAKE at 30); identify A at 70 while the trip is open; end the trip at 150.
+Checkpoint: after the identification settles, the row exists, is unlinked (the consumer skips the trip lookup for an ineligible row), has `is_assignee_source` null, and reads `contact_active` false. The asset and trip assignees are unchanged.
+Expected end state: the row is linked to the trip with `is_assignee_source` false and `flags.contact_is_active` false, no claim is awarded, the asset and trip assignees are unchanged, and no violation is transferred. The runner re-enables A when the scenario ends.
 
 ## O13 — Threshold reassignment excludes already-transferred violations (`o-guards.spec.ts`, `@slow`)
 

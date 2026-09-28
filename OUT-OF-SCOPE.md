@@ -2,6 +2,8 @@
 
 ## O1 — Real hardware, both event types, end to end
 
+The suite runs O1 simulated (`O1` in `src/scenarios/live.ts`): the normal happy path with both event types, driven by a fixture TennaCAM and emulated Rosco payloads. The run summary prints that caveat next to its result. What stays out of scope is the real-hardware version below.
+
 Needs a TennaCAM 2.0 installed on a drivable test vehicle, producing genuine Type 6 and Type 7 events from an actual camera and an actual Rosco recognition pass. Every other case in this suite emulates the webhook; O1 exists specifically to prove the emulation matches reality, so it cannot itself be emulated without defeating its own purpose.
 
 Manual proof required: drive the vehicle, capture the Rosco session per the design doc's "Test tools" section, confirm through `GET /api/v1.0/companies/:id/events` that Rosco actually sent Type 6/7, and confirm through this suite's own SQL probes (`PLAN/05-VERIFICATION.md`) that the row landed and behaved as O2 through O17 already assert programmatically for the emulated path. Sign off by pasting the resulting `rosco_driver_events` row and the trip/asset assignee state into the ticket.
@@ -10,9 +12,9 @@ Manual proof required: drive the vehicle, capture the Rosco session per the desi
 
 Out of scope for this entire project, not only for this module, per the top-level scope decision in `AGENT-BRIEF.md` and this suite's own plan. R1 through R20 and A1 through A18 are not tracked in `TRACEABILITY.md` at all.
 
-## O10, O11 (design doc), O25 through O28
+## O26, O27, O28
 
-Not assigned to this module (see `TRACEABILITY.md` and `PLAN/06-BLOCKERS.md` for the full reasoning). If a future module or a follow-up task picks these up, they belong in new `src/scenarios/` files, not folded into the eight existing ones, to keep the one-O-case-family-per-file convention this module followed.
+Ingestion-level cases: a redelivered webhook racing the recorder (O26), key type isolation in the S3 raw folder (O27), and the S3 check being unavailable (O28). Each needs control this suite doesn't have from outside the cluster (the recorder's timing, seeding S3, or an S3 outage), so none has a scenario (`TRACEABILITY.md`). If a follow-up picks them up, they belong in new `src/scenarios/` files, not folded into the existing ones, to keep one O-case family per file.
 
 ## O20 — The live assignee publish is lost
 

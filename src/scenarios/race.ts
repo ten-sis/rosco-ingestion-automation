@@ -1,13 +1,8 @@
 /**
  * `o-race.spec.ts` scenario: O9. Fleet `fr-race`.
  *
- * NAMING NOTE: the design doc's own Developer Test Plan labels 'insert-time race on the claim'
- * (two concurrent identifications on one trip) as O9, and 'trip-end award race' (an identification
- * racing the trip-ended message) as O10. This suite's plan (i-would-like-to-quiet-codd.md,
- * o-race.spec.ts) describes O9 as the identification-vs-trip-ended race instead, and that is the
- * shape the agent brief and per-case tables ask this file to build. Encoded here as instructed;
- * the design doc's own O9 (two concurrent identifications) and O10 (trip-end award race) are
- * therefore both left uncovered by this module and are called out in TRACEABILITY.md.
+ * The design doc's O9: "driver identification and trip end fired at the same time. Run several
+ * times." An earlier revision of the doc numbered this race O10, see PLAN/06-BLOCKERS.md.
  */
 
 import type { Fixture } from '../fixture/types';
