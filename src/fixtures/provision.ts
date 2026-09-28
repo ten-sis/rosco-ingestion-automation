@@ -136,7 +136,7 @@ export async function assertExpectedAccount(api: ApiClient, accountId: Uuid, fle
 const LICENCE_FLEET = 'fr-licence';
 
 /**
- * `playwright.config.ts` runs 4 workers, one asset per spec file, but a licence is scoped to the
+ * `playwright.config.ts` runs 6 workers by default, one asset per spec file, but a licence is scoped to the
  * ACCOUNT, not the asset. `fr-licence`'s O18 revokes the facial-recognition licence and O19 turns
  * on TrackIt for the whole account; while either toggle is applied, every other suite mutating
  * that same account has its negative assertions pass for the wrong reason and its positive
@@ -163,7 +163,7 @@ function assertLicenceFleetIsolated(fleet: string): void {
     throw new Error(
       `ACCOUNT_ID_FR_LICENCE is not set. The "${LICENCE_FLEET}" fleet revokes and re-grants an ` +
         'account-scoped licence while other suites may be mutating the same account concurrently ' +
-        '(4 workers, playwright.config.ts) — running it against the shared ACCOUNT_ID would turn the ' +
+        '(parallel workers, playwright.config.ts) — running it against the shared ACCOUNT_ID would turn the ' +
         'facial-recognition licence off for everyone mid-run. Set ACCOUNT_ID_FR_LICENCE in .env to an ' +
         'account dedicated to this fleet before running it.',
     );

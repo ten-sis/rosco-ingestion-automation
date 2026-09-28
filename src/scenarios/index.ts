@@ -8,7 +8,7 @@
  */
 
 import { LIVE_SCENARIOS } from './live';
-import { TRIP_LOOKUP_SCENARIOS } from './tripLookup';
+import { TRIP_LOOKUP_GAP_SCENARIOS, TRIP_LOOKUP_SCENARIOS } from './tripLookup';
 import { DELAYED_SCENARIOS } from './delayed';
 import { GUARDS_SCENARIOS } from './guards';
 import { RACE_SCENARIOS } from './race';
@@ -17,7 +17,7 @@ import { PHASE2_SCENARIOS } from './phase2';
 import type { Scenario } from '../scenario/types';
 
 export { LIVE_SCENARIOS } from './live';
-export { TRIP_LOOKUP_SCENARIOS } from './tripLookup';
+export { TRIP_LOOKUP_GAP_SCENARIOS, TRIP_LOOKUP_SCENARIOS } from './tripLookup';
 export { DELAYED_SCENARIOS } from './delayed';
 export { GUARDS_SCENARIOS } from './guards';
 export { RACE_SCENARIOS } from './race';
@@ -27,6 +27,7 @@ export { PHASE2_SCENARIOS } from './phase2';
 export const ALL_SCENARIOS: readonly Scenario[] = [
   ...LIVE_SCENARIOS,
   ...TRIP_LOOKUP_SCENARIOS,
+  ...TRIP_LOOKUP_GAP_SCENARIOS,
   ...DELAYED_SCENARIOS,
   ...GUARDS_SCENARIOS,
   ...RACE_SCENARIOS,

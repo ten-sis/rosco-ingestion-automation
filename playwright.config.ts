@@ -40,7 +40,9 @@ export default defineConfig({
   globalSetup: require.resolve('./src/globalSetup'),
   grepInvert,
   fullyParallel: false,
-  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 4,
+  // One worker per scenario file keeps each file's waits from queueing behind another's. The
+  // default run has 7 scenario files (phase 2 excluded).
+  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 6,
   forbidOnly: !!process.env.CI,
   // A retry would replay a timeline against dirty state. Fix the test instead.
   retries: 0,

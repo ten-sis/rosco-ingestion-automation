@@ -1,7 +1,14 @@
 /**
- * `o-trip-lookup.spec.ts` scenarios: the six O12 trip-lookup fixtures, plus O5, O14 and O6, which
- * share the same covering-trip guard. Fleet `fr-trip-lookup`. Source: design doc "Trip lookup"
- * (the covering-guard table) and "The write guards" > Trip recency.
+ * The six O12 trip-lookup fixtures, plus O5, O14 and O6, which share the same covering-trip guard.
+ * Source: design doc "Trip lookup" (the covering-guard table) and "The write guards" > Trip recency.
+ *
+ * Split across two spec files, each with its own fleet and asset, so they run in parallel:
+ * `o-trip-lookup.spec.ts` (`TRIP_LOOKUP_SCENARIOS`, fleet `fr-trip-lookup`) and
+ * `o-trip-lookup-gaps.spec.ts` (`TRIP_LOOKUP_GAP_SCENARIOS`, fleet `fr-trip-lookup-gaps`). The
+ * second holds O12c and O6, the two cases whose trips sit about ten minutes apart. Each waits
+ * about ten minutes before its first step so its backdated trip still lands after its
+ * preconditions (`anchorTimeline` in `src/scenario/runner.ts`), and in one file those waits added
+ * up behind everything else.
  *
  * Every case in this file has a fixture file under `fixtures/` and is compiled through
  * `fixturePlayback.ts`'s `expandFixtureToSteps`, the same path `live.ts`'s O2 and `delayed.ts`'s
@@ -464,4 +471,9 @@ const O6: Scenario = {
     "The doc: a late identification for a trip already superseded by a later trip overwriting the asset's current, correct assignee is exactly what the trip-recency guard exists to prevent. Compiled from fixtures/O6-part1-first-trip-with-violations.json and fixtures/O6-part2-late-identification-superseded.json, played in order against the same asset, via fixturePlayback.ts: part1's trip carries two violations (HARDBRAKE, HARDACCEL) and closes with a settle('tripEnded') before part2's trip is ever started, matching this scenario's previous hand-authored ordering; part2's trip then runs and closes normally, and only then does the late identification (claiming a timestamp inside part1's window) arrive. The trip-lookup finds trip 1 (the most recent trip with `start_date <= timestamp`), links it (closed trip covers, flagged), and the claim is won and the trip write happens normally, but the asset write is skipped because a later normal trip (trip 2) already exists. Trip 1's own trip-end pass already ran before this identification arrived, so its violations move only on the scorecard backfill cron's next pass, hence `@slow`. Part2 is compiled with `atSecOffset: lastAtSec(o6Part1Base) + TWO_PART_TRIP_GAP_SEC` so its trip continues part1's clock (200) rather than restarting at 0, and the identification's own local atSec -600 lands back on atSec 180 in part1's window (`end_date` 200 `>= timestamp` 180, the closed-trip-covers row, not O12c's `end_date < timestamp` row).",
 };
 
-export const TRIP_LOOKUP_SCENARIOS: readonly Scenario[] = [O12a, O12b, O12c, O12d, O12e, O12f, O5, O14, O6];
+// O14 still runs after the other O12 cases here, so its asset already has trip history (see its
+// rationale). Reused assets have history anyway after their first run.
+export const TRIP_LOOKUP_SCENARIOS: readonly Scenario[] = [O12a, O12b, O12d, O12e, O12f, O5, O14];
+
+/** O12c and O6: the long-gap cases, in their own spec file and fleet. See the file comment. */
+export const TRIP_LOOKUP_GAP_SCENARIOS: readonly Scenario[] = [O12c, O6];
