@@ -53,7 +53,7 @@ const o71Timeline: Step[] = insertAfterIndex(o71WithPatch, o71IgnitionOffIndex, 
 
 const O7_1: Scenario = {
   id: 'O7.1',
-  title: 'Manual correction wins on receipt order, trip write is unaffected',
+  title: 'Manual correction newer than the identification survives, trip write is unaffected',
   priority: 'P0',
   tags: ['@slow'],
   // B is not otherwise involved in this scenario (it uses A and C): every scenario in this file

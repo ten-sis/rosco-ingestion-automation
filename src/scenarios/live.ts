@@ -228,7 +228,12 @@ const O16: Scenario = {
 // O17 — compiled from fixtures/O17-multi-day-trip-compressed.json
 // ---------------------------------------------------------------------------
 
-const o17Base = expandFixtureToSteps(o17Fixture as Fixture);
+// Driver B's day-two identification claims atSec 93600 (26 hours) but is sent at 160, while the
+// compressed trip is still open. Its timestamp is deliberately in the future when sent, so it is
+// flagged, or the runner would hold it back 26 hours.
+const o17Base = expandFixtureToSteps(o17Fixture as Fixture).map((s) =>
+  s.kind === 'ident' && s.driver === 'B' ? { ...s, timestampAheadOfDelivery: true } : s,
+);
 const o17IgnitionOnIndex = lastIndexWhere(o17Base, (s) => s.kind === 'ignitionOn');
 const o17IdentAIndex = lastIndexWhere(o17Base, (s) => s.kind === 'ident' && s.driver === 'A');
 const o17WithAssigneeSettle = insertAfterIndex(o17Base, o17IdentAIndex, {

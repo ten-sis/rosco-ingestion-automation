@@ -22,7 +22,7 @@ The two clocks are independent by design, and collapsing six of the design doc's
 
 - A delayed identification is an `ident` step with a small `atSec` (an early logical time) placed late in the array (a late delivery). Example: O3.3, O6.
 - A delayed trip is `ignitionOn`/`ignitionOff` steps with small `atSec` values placed after the `ident` that belongs to them. Example: O3.1, O12f.
-- A guard that reads `received_at` (server receipt time), as opposed to the event's own `timestamp`, is sensitive to delivery order, not to `atSec`. O7.1/O7.2 are built on this distinction; see `06-BLOCKERS.md` for the one place this needed a judgment call because the plan's own prose described the differentiator loosely as an event timestamp.
+- The asset-write guard compares the standing assignment's `created_at` with the identification's own `timestamp`, not with `received_at` (`AssigneeWriter.writeAssetAssignee` in hapi-server-rosco-ingestion-rmq, checked 2026-09-28). So O7.1/O7.2 turn on `atSec` relative to the real time of the manual change. Because precondition and manual writes happen in real time, T0 is anchored just after each scenario's preconditions and no event is sent before its own timestamp (`anchorTimeline` in `src/scenario/runner.ts`).
 
 ## `ScenarioContext`
 

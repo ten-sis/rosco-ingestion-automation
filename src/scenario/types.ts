@@ -27,6 +27,13 @@ export interface StepBase {
   atSec: number;
   /** Optional real wall-clock pause before this step is sent, for ordering-sensitive cases. */
   sendAfterMs?: number;
+  /**
+   * Set on a step whose timestamp is deliberately later than the moment it is sent (O17's
+   * day-two identification). Every other step is held back until its own timestamp has passed,
+   * so no event ever claims a time in the future. This one is sent on schedule instead, and is
+   * left out when the runner anchors T0.
+   */
+  timestampAheadOfDelivery?: boolean;
   /** Free-text note surfaced in the test report and in failure messages. */
   note?: string;
 }

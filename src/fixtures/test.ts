@@ -23,7 +23,7 @@ import { createDriverEventEmitter } from '../emit/index';
 import { createTelemetryEmitter } from '../emit/telemetry';
 import { createDriverEventsReader } from '../read/driverEvents';
 import type { ScenarioContext } from '../scenario/context';
-import { runScenario } from '../scenario/runner';
+import { anchorTimeline, ANCHOR_MARGIN_MS, runScenario } from '../scenario/runner';
 import { BACKFILL_BUDGET_MS } from '../scenario/timeouts';
 import type { Scenario } from '../scenario/types';
 import { provisionAssetWithTennaCam, provisionFleetRun } from './provision';
@@ -144,14 +144,19 @@ export function defineScenarioTests(
   for (const scenario of scenarios) {
     const tags = (scenario.tags ?? []).join(' ');
     const title = `${scenario.id} @mutating ${tags} ${scenario.title}`.replace(/\s+/g, ' ').trim();
+    // The wait `anchorTimeline` adds before a delayed trip's first step, per execution.
+    const startWaitMs = anchorTimeline(scenario.timeline, 0).startAtMs - ANCHOR_MARGIN_MS;
     test(title, async ({ fr }, testInfo) => {
+      if (startWaitMs > 0) {
+        test.setTimeout(testInfo.timeout + startWaitMs * (scenario.repeat ?? 1));
+      }
       if (scenario.tags?.includes('@slow')) {
         // Reviewer finding 4: this must only ever WIDEN the timeout. `testInfo.timeout` is the
         // timeout already in effect (the project/config default, e.g. `playwright.config.ts`'s
         // 12 minutes) before this override runs — taking the max means a smaller computed budget
         // (BACKFILL_BUDGET_MS + headroom = 7 minutes today) can never shrink the one scenario that
         // waits out the backfill cron below what every other, faster scenario already gets.
-        test.setTimeout(Math.max(testInfo.timeout, BACKFILL_BUDGET_MS + SLOW_TEST_HEADROOM_MS));
+        test.setTimeout(Math.max(testInfo.timeout, BACKFILL_BUDGET_MS + SLOW_TEST_HEADROOM_MS + startWaitMs));
       }
       await runScenario(scenario, fr);
     });

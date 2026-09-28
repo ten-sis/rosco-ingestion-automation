@@ -19,19 +19,13 @@
  * hand-authored one: `timeline` is populated, `expectAfterStep` checkpoints reference real indices
  * into it, and this file only ever walks that array in order.
  *
- * COORDINATION NOTE (t0 anchor): AGENT-BRIEF asks for `computeT0` below to be deleted in favour of
- * reading an anchor a second agent is moving onto `planPlayback`'s returned `PlaybackPlan`. That
- * plan is resolved once per module, at fixture-compile time (inside `expandFixtureToSteps`, which
- * every `src/scenarios/*.ts` file calls at the top level) — well before any given scenario
- * *executes*, and, for `repeat` (`race.ts`'s O9), the same compiled `Step[]` is executed several
- * times from several independent `t0` anchors. Nothing in the current `Scenario` contract
- * (`scenario/types.ts`, not owned by this task and not to be edited) carries a `PlaybackPlan` or a
- * `t0` through to the runner, and neither `fixturePlayback.ts` nor `fixture/planner.ts` (both
- * off-limits to this task) currently attach one to the `Step[]` they return. Deleting `computeT0`
- * without a real replacement would silently break every scenario execution in a way `tsc
- * --noEmit`/`playwright test --list` cannot catch (neither type-checks nor lists execute a
- * timeline). `computeT0` is therefore kept, unchanged in behaviour, until that dependency actually
- * lands; see the final report for this file's task.
+ * T0 ANCHOR: every event is stamped `t0 + atSec`, and T0 is set right after the execution's
+ * preconditions and snapshots, not before them (`anchorTimeline`). The consumer skips the asset
+ * write whenever the standing assignment is newer than the identification's own timestamp
+ * (`AssigneeWriter.writeAssetAssignee` in hapi-server-rosco-ingestion-rmq, the design doc's O7
+ * rule). A T0 set before the preconditions, as it used to be, stamped every identification
+ * earlier than the precondition's assignment, so every asset write was skipped, correctly, for
+ * the wrong reason.
  */
 
 import { getAssetAssignee, setAssetAssignee } from '../api/assets';
@@ -100,13 +94,56 @@ const DEFAULT_LAT = 33.749;
 const DEFAULT_LON = -84.388;
 const DEFAULT_HARSH_SEVERITY: NonNullable<HarshEventStep['severity']> = 'hardBrake';
 
-/** Headroom so the timeline's largest `atSec` still lands safely in the past, never in the future. */
-const CLOCK_SAFETY_MARGIN_SEC = 30;
+/**
+ * Every identification is stamped at least this long after the execution's last real-time write
+ * (its preconditions). Covers the gap between the suite's clock and backend-crud's, which stamps
+ * the assignment's `created_at`.
+ */
+export const ANCHOR_MARGIN_MS = 3_000;
 
-/** See the "COORDINATION NOTE (t0 anchor)" module doc comment above for why this stays. */
-function computeT0(timeline: readonly Step[]): Date {
-  const maxAtSec = Math.max(0, ...timeline.map((s) => s.atSec));
-  return new Date(Date.now() - (maxAtSec + CLOCK_SAFETY_MARGIN_SEC) * 1_000);
+/** A delivery wait at least this long is logged, so a slow run shows where its time went. */
+const LOGGED_START_DELAY_MS = 10_000;
+
+/** A step whose timestamp the runner keeps at or before the moment it's sent. */
+function isTimestampedDelivery(step: Step): boolean {
+  return isNetworkDispatchStep(step) && !step.timestampAheadOfDelivery;
+}
+
+/**
+ * Picks T0, and when to send the first step, for an execution whose last real-time write happened
+ * at `nowMs`. Two rules:
+ *
+ * 1. No event is sent before its own timestamp. Steps are sent in order, each after its
+ *    `sendAfterMs`, so step k goes out no earlier than `start + planned_k`, where `planned_k`
+ *    sums the pauses up to it. That needs `t0 + atSec_k <= start + planned_k` for every step.
+ *    `leadSec` is the largest `atSec_k - planned_k`, positive for a delayed trip delivered in a
+ *    burst, whose frames are stamped earlier than they arrive.
+ * 2. Every identification is stamped after `nowMs + ANCHOR_MARGIN_MS`, so it is newer than any
+ *    assignment the preconditions (or an earlier scenario on this asset) wrote.
+ *
+ * Rule 1 sets `t0 = start - leadSec`. Rule 2 then sets `start`, which is the only free choice: a
+ * delayed trip has to wait until its backdated timestamps are all after the preconditions.
+ */
+export function anchorTimeline(timeline: readonly Step[], nowMs: number): { t0: Date; startAtMs: number } {
+  let plannedMs = 0;
+  let leadMs = 0;
+  let earliestIdentAtMs: number | undefined;
+  for (const step of timeline) {
+    plannedMs += Math.max(0, step.sendAfterMs ?? 0);
+    if (isTimestampedDelivery(step)) leadMs = Math.max(leadMs, step.atSec * 1_000 - plannedMs);
+    if (step.kind === 'ident' && !step.timestampAheadOfDelivery) {
+      earliestIdentAtMs = Math.min(earliestIdentAtMs ?? Infinity, step.atSec * 1_000);
+    }
+  }
+  const identFloorMs = earliestIdentAtMs === undefined ? 0 : Math.max(0, leadMs - earliestIdentAtMs);
+  const startAtMs = nowMs + ANCHOR_MARGIN_MS + identFloorMs;
+  return { t0: new Date(startAtMs - leadMs), startAtMs };
+}
+
+/** Waits until wall-clock time `atMs`. Returns at once when it has already passed. */
+async function waitUntil(atMs: number): Promise<void> {
+  const remaining = atMs - Date.now();
+  if (remaining > 0) await pauseForDeliveryOrder(remaining);
 }
 
 function contactIdFor(sc: ScenarioContext, driver: DriverKey | null): Uuid | null {
@@ -181,7 +218,8 @@ function tiesWithNext(timeline: readonly Step[], index: number): boolean {
 async function runTimelineExecution(scenario: Scenario, baseSc: ScenarioContext, rep: number): Promise<void> {
   // Fresh derived context per execution: new t0, new WeakMap-keyed bookkeeping. `baseSc` (the
   // worker-scoped fixture context) is never mutated — see the module doc comment in context.ts.
-  const sc: ScenarioContext = { ...baseSc, t0: computeT0(scenario.timeline) };
+  // This t0 is provisional. It is re-anchored below, once the preconditions are in place.
+  const sc: ScenarioContext = { ...baseSc, t0: new Date() };
   beginExecution(sc, scenario.timeline);
 
   await capturePreExistingTrips(sc, sc.run.assetId);
@@ -195,6 +233,17 @@ async function runTimelineExecution(scenario: Scenario, baseSc: ScenarioContext,
   await applyPreconditions(scenario, sc);
   await captureUnchangedSnapshots(scenario, sc);
 
+  const anchor = anchorTimeline(scenario.timeline, Date.now());
+  sc.t0 = anchor.t0;
+  const startDelayMs = anchor.startAtMs - Date.now();
+  if (startDelayMs >= LOGGED_START_DELAY_MS) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[runner] ${scenario.id}: waiting ${Math.round(startDelayMs / 1000)}s before the first step, so the ` +
+        "timeline's backdated timestamps all land after this execution's preconditions",
+    );
+  }
+  await waitUntil(anchor.startAtMs);
 
   const raceMode = isRaceScenario(scenario);
   const { timeline } = scenario;
@@ -357,6 +406,9 @@ async function capturePendingTripBaselines(sc: ScenarioContext): Promise<void> {
 
 async function deliverStep(sc: ScenarioContext, step: Step): Promise<void> {
   if (step.sendAfterMs) await pauseForDeliveryOrder(step.sendAfterMs);
+  // Never send an event before the time it claims. `anchorTimeline` plans for this, and this is
+  // the backstop for a step whose planned pauses are shorter than its `atSec` implies.
+  if (isTimestampedDelivery(step)) await waitUntil(sc.t0.getTime() + step.atSec * 1_000);
   switch (step.kind) {
     case 'ignitionOn':
     case 'move':
