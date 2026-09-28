@@ -232,4 +232,9 @@ export interface Scenario {
   repeat?: number;
   /** Why this case exists, in the design doc's own words. Printed on failure. */
   rationale: string;
+  /**
+   * A limit on what a pass proves, printed next to the result in the run summary. O1 uses it: the
+   * doc's O1 is real hardware, and this suite can only run it simulated.
+   */
+  caveat?: string;
 }

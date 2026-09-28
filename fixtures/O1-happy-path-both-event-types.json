@@ -1,0 +1,74 @@
+{
+  "id": "O1",
+  "title": "Happy path, both event types end to end (simulated)",
+  "description": "The design doc's O1 is real hardware end to end. This is the simulated stand-in: the same normal happy path, driven by a fixture TennaCAM and emulated Rosco payloads instead of a real camera. One open trip with a violation on each side of the identification: HARDBRAKE at 45, before any driver is known, and HARDACCEL at 150, after. An unidentified event (Type 6, unDrv) arrives at 75, then an identified event (Type 7, identDrv) for driver A at 105, both while the trip is open. Must prove: both events resolve and persist; the unDrv row is never linked or considered for the claim; the identDrv row wins the claim and is linked to the trip; the asset and trip assignee become A; at trip end both violations, including the one from before the identification, are assigned to A. Must NOT change: the unDrv event must not set any assignee.",
+  "suite": "fr-live",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip starts"
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 45,
+        "lat": 40.70305,
+        "lon": -74.43015,
+        "note": "violation before any identification"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "HARDACCEL",
+        "atSec": 150,
+        "lat": 40.70335,
+        "lon": -74.42959,
+        "note": "violation after the identification"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 174,
+        "lat": 40.70342,
+        "lon": -74.42945
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 200,
+        "lat": 40.70357,
+        "lon": -74.42917,
+        "note": "trip ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 75,
+      "driver": null,
+      "type": "unDrv",
+      "note": "Type 6, unidentified, carries no driver_guid"
+    },
+    {
+      "atSec": 105,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "Type 7, identified, wins the claim"
+    }
+  ]
+}

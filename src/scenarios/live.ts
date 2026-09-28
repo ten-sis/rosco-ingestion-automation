@@ -1,5 +1,5 @@
 /**
- * `o-live.spec.ts` scenarios: O2, O4, O15, O16, O17. Fleet `fr-live`.
+ * `o-live.spec.ts` scenarios: O1 (simulated), O2, O4, O15, O16, O17. Fleet `fr-live`.
  *
  * Every case here lands its identification while the trip is genuinely open (`@live`). Trips are
  * short and live throughout this module (AGENT-BRIEF revision 2, item 4): two to five minutes,
@@ -13,12 +13,73 @@
 
 import type { Fixture } from '../fixture/types';
 import type { Scenario, Step } from '../scenario/types';
+import o1Fixture from '../../fixtures/O1-happy-path-both-event-types.json';
 import o2Fixture from '../../fixtures/O2-live-open-trip.json';
 import o4Fixture from '../../fixtures/O4-second-identification-same-trip.json';
 import o15Fixture from '../../fixtures/O15-type6-then-type7.json';
 import o16Fixture from '../../fixtures/O16-redelivered-webhook.json';
 import o17Fixture from '../../fixtures/O17-multi-day-trip-compressed.json';
 import { expandFixtureToSteps, insertAfterIndex, lastIndexWhere } from './fixturePlayback';
+
+// ---------------------------------------------------------------------------
+// O1 (simulated) — compiled from fixtures/O1-happy-path-both-event-types.json
+// ---------------------------------------------------------------------------
+
+const o1Base = expandFixtureToSteps(o1Fixture as Fixture);
+const o1UnDrvIndex = lastIndexWhere(o1Base, (s) => s.kind === 'ident' && s.driver === null);
+const o1WithUnDrvSettle = insertAfterIndex(o1Base, o1UnDrvIndex, {
+  kind: 'settle',
+  atSec: 76,
+  until: 'identificationPersisted',
+  budget: 'LIVE_BUDGET_MS',
+});
+const o1UnDrvSettleIndex = o1UnDrvIndex + 1;
+const o1IdentAIndex = lastIndexWhere(o1WithUnDrvSettle, (s) => s.kind === 'ident' && s.driver === 'A');
+const o1WithAssigneeSettle = insertAfterIndex(o1WithUnDrvSettle, o1IdentAIndex, {
+  kind: 'settle',
+  atSec: 106,
+  until: 'assigneeWritten',
+  budget: 'LIVE_BUDGET_MS',
+});
+const o1AssigneeSettleIndex = o1IdentAIndex + 1;
+const o1Timeline: Step[] = [...o1WithAssigneeSettle, { kind: 'settle', atSec: 201, until: 'tripEnded', budget: 'TRIP_END_BUDGET_MS' }];
+
+const O1: Scenario = {
+  id: 'O1',
+  title: 'Happy path, both event types end to end (simulated)',
+  priority: 'P0',
+  tags: ['@live'],
+  // B is not otherwise involved, so ending at A is a real write, not residue from an earlier
+  // scenario on this asset.
+  preconditions: { assetAssignee: 'B' },
+  timeline: o1Timeline,
+  expectAfterStep: [
+    {
+      afterIndex: o1UnDrvSettleIndex,
+      expect: {
+        assetAssignee: { value: 'unchanged' },
+        driverEvents: [{ driver: null, type: 'unDrv', count: 1, tripLink: { state: 'unlinked' } }],
+      },
+    },
+    {
+      afterIndex: o1AssigneeSettleIndex,
+      expect: { assetAssignee: { value: 'A' }, trips: [{ tripRef: 'latest', assignee: 'A' }] },
+    },
+  ],
+  expect: {
+    assetAssignee: { value: 'A' },
+    trips: [{ tripRef: 'latest', assignee: 'A' }],
+    driverEvents: [
+      { driver: null, type: 'unDrv', count: 1, tripLink: { state: 'unlinked' } },
+      { driver: 'A', type: 'identDrv', count: 1, isAssigneeSource: true, tripLink: { state: 'linked', tripRef: 'latest' } },
+    ],
+    thresholdEvents: [{ tripRef: 'latest', allAssignedTo: 'A' }],
+  },
+  rationale:
+    "The doc's O1: 'Real hardware, both event types, end to end. Both resolve, persist and behave as designed.' This is the same happy path, simulated. Both event types arrive while the trip is open: a Type 6 that must persist and change nothing, then a Type 7 for A that must win the claim. Both assignees become A while the trip is still open, and at trip end both violations, including the one from before the identification, are on A. Compiled from fixtures/O1-happy-path-both-event-types.json via fixturePlayback.ts. The checkpoint after the Type 6 settles is the negative control.",
+  caveat:
+    'Simulated, not a real tracker: GMS frames come from a fixture TennaCAM and the Rosco events are emulated payloads. A pass proves the pipeline end to end, not the real camera, the Rosco recognition, or the webhook Rosco itself sends. The real-hardware check stays manual (OUT-OF-SCOPE.md).',
+};
 
 // ---------------------------------------------------------------------------
 // O2 — compiled from fixtures/O2-live-open-trip.json
@@ -276,4 +337,4 @@ const O17: Scenario = {
     "PM's own rule, quoted in the doc: 'Multi-day trips are not split. The assignee moves once per trip, and a second driver identified later in the same trip is discarded, because assigning them would attribute the first leg's events to the second driver.' The design doc's own O17 tests this over a multi-day trip; `MAX_TRIP_SECONDS` (`src/constants.ts`) caps every trip this suite generates at 300 seconds, so the day-boundary framing itself is not reproducible by live emission. Compiled from fixtures/O17-multi-day-trip-compressed.json via fixturePlayback.ts: the fixture keeps the trip itself compressed (IGN_OFF at atSec 170) and stretches only B's claimed timestamp (atSec 93600, standing in for the real ~26-hour-later moment) while delivering it at deliverAtSec 160, before the compressed trip's own IGN_OFF, so the trip is genuinely still open when B's identification arrives — matching the real multi-day case, where the trip has not ended either. This proves the discard happens for a second identification arriving while the trip is still open, via the plain trip-driver write guard (null-or-equal; the trip's assignee is already A, non-null and not B), not via the closed-trip discard path O3.4/O3.5 and O6/O12b exercise for a late arrival after trip end. See PLAN/06-BLOCKERS.md for why the true multi-day claim (a trip literally open for ~30 hours) is out of this suite's reach either way. The checkpoint right after ignition-on, before A's identification, asserts `'unchanged'` (the pre-timeline `null` baseline); the checkpoint right after A's win, and the identical literal 'A' repeated in the final assertion, show B's later identification did not move it.",
 };
 
-export const LIVE_SCENARIOS: readonly Scenario[] = [O2, O4, O15, O16, O17];
+export const LIVE_SCENARIOS: readonly Scenario[] = [O1, O2, O4, O15, O16, O17];

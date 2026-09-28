@@ -153,6 +153,7 @@ export function defineScenarioTests(
       { type: 'priority', description: scenario.priority },
       { type: 'fleet', description: fleet },
       { type: 'asserts', description: describeExpectation(scenario.expect) },
+      ...(scenario.caveat ? [{ type: 'caveat', description: scenario.caveat }] : []),
       ...(docCase ? [{ type: 'doc-case', description: docCase.case }, { type: 'doc-expected', description: docCase.expected }] : []),
     ];
     // The wait `anchorTimeline` adds before a delayed trip's first step, per execution.

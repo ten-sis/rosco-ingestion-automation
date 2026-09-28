@@ -11,9 +11,8 @@ import * as path from 'node:path';
 import type { FullConfig, FullResult, Reporter, Suite, TestCase, TestResult, TestStep } from '@playwright/test/reporter';
 import { DESIGN_DOC_OPERATION_CASES, designDocCaseFor } from './designDocCases';
 
-/** Doc cases with no scenario, and why. O1's wording is the caveat the whole run carries. */
+/** Doc cases with no scenario, and why. O1 has a simulated scenario, which carries its own caveat. */
 const NO_SCENARIO: Readonly<Record<string, string>> = {
-  O1: 'Not validated by this run. Every event in this run is simulated: GMS frames from a fixture TennaCAM and emulated Rosco webhook payloads, not a real tracker or camera. O1 needs real hardware (`OUT-OF-SCOPE.md`).',
   O20: 'Manual. A lost publish cannot be forced from outside the cluster, and the audit is what catches it (`OUT-OF-SCOPE.md`).',
   O26: 'Not covered. Needs control over the recorder\'s timing (`OUT-OF-SCOPE.md`).',
   O27: 'Not covered. Needs seeding the S3 raw folder (`OUT-OF-SCOPE.md`).',
@@ -159,10 +158,11 @@ export default class SummaryReporter implements Reporter {
       out.push('');
       out.push('| Case | Priority | Result | Time | Failed at |');
       out.push('|---|---|---|---|---|');
+      // A case with a caveat gets a marker here, spelled out in its section below.
       for (const r of scenarios) {
         const failed = r.status === 'failed' || r.status === 'timedOut';
         out.push(
-          `| ${r.annotations.get('case')} | ${r.annotations.get('priority') ?? ''} | ${STATUS_LABEL[r.status]} | ` +
+          `| ${r.annotations.get('case')}${r.annotations.has('caveat') ? ' (see caveat)' : ''} | ${r.annotations.get('priority') ?? ''} | ${STATUS_LABEL[r.status]} | ` +
             `${duration(r.durationMs)} | ${failed ? cell(r.failedAt ?? '(before the first step)') : ''} |`,
         );
       }
@@ -180,6 +180,8 @@ export default class SummaryReporter implements Reporter {
         const docExpected = r.annotations.get('doc-expected');
         if (docExpected) out.push(`- **Design doc expects:** ${docExpected}`);
         out.push(`- **This scenario asserts:** ${r.annotations.get('asserts') ?? ''}`);
+        const caveat = r.annotations.get('caveat');
+        if (caveat) out.push(`- **Caveat:** ${caveat}`);
         if (r.status === 'failed' || r.status === 'timedOut') {
           out.push(`- **Failed at:** ${r.failedAt ?? '(before the first step, during provisioning or setup)'}`);
           if (r.error) out.push(`- **Error:** \`${r.error.replace(/`/g, "'")}\``);
