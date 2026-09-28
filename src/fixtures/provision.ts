@@ -4,28 +4,49 @@
  * anything.
  *
  * AGENT-BRIEF revision 2 item 1: one asset per spec file. Each spec file declares a fleet name
- * (see `fixtures/test.ts`), and `provisionFleetRun` provisions that fleet's asset exactly once per
- * worker. `env.ts`'s `suiteAssetId(fleet)` / `suiteAccountId(fleet)` let an operator pin either
- * per fleet; when no asset is pinned, a fresh one is created. Pinning only fixes WHICH asset id is
- * used — a fresh tracker is still created, associated, installed and verified against it every
- * run, since `env.ts` exposes no per-fleet tracker/vehicle pin to reuse an existing installation
- * (see the module's semantic-decisions note in the build report for why the old single-global
- * asset+tracker+vehicle triple pin was dropped rather than extended per fleet).
+ * (see `fixtures/test.ts`), and `provisionFleetRun` provisions that fleet's asset once per worker.
+ *
+ * Assets and trackers are reused across runs (PLAN/07-ASSET-REUSE.md). Each fleet's asset is found
+ * again by its fixed fleet value (`fixtures/identity.ts`), and the fixture TennaCAM already
+ * installed on it is reused, so a new run, a worker restart after a failed test, or a new day all
+ * land on the same asset and tracker. A fleet that needs an asset with no history (`fr-phase2`,
+ * for O21) opts out with `freshAsset`. `env.ts`'s `suiteAssetId(fleet)` / `suiteAccountId(fleet)`
+ * still let an operator pin either per fleet, and a pinned asset's fixture TennaCAM is reused too.
  */
 
 import { randomUUID } from 'node:crypto';
 import { expect } from '@playwright/test';
 import type { ApiClient } from '../api/client';
-import type { Contact, DriverKey, RunContext, Uuid } from '../types';
+import type { Asset, AssetTracker, Contact, DriverKey, RunContext, Uuid } from '../types';
+import { ApiError } from '../api/client';
 import { env, suiteAssetId } from '../env';
-import { DRIVER_NAMES, FIXTURE_PREFIX, FR_LICENSE_NAME } from '../constants';
-import { createAsset, resolveAssetCategoryId } from '../api/assets';
-import { associateTrackerWithAccount, createTennaCam2, installTrackerOnAsset } from '../api/trackers';
+import { DRIVER_NAMES, FIXTURE_PREFIX, FR_LICENSE_NAME, TENNACAM_2_TYPE } from '../constants';
+import {
+  createAsset,
+  findAssetByFleet,
+  getAssetWithTracker,
+  resolveAssetCategoryId,
+  setAssetAssignee,
+} from '../api/assets';
+import {
+  associateTrackerWithAccount,
+  createTennaCam2,
+  getTrackerAssetAssociation,
+  installTrackerOnAsset,
+} from '../api/trackers';
+import { getTrip, searchTrips } from '../api/trips';
 import { createContact, getContact, searchContactsByName, setContactEnabled } from '../api/contacts';
 import { accountHasLicence, accountHasRoscoIntegration, licenceNameMatches } from '../api/licences';
+import { createTelemetryEmitter } from '../emit/telemetry';
 import { waitForDigestionReady } from '../scenario/waits';
-import { DIGESTION_READY_BUDGET_MS, LICENCE_ENABLE_BUDGET_MS, POLL_INTERVAL_MS } from '../scenario/timeouts';
-import { currentRunId, recordCreated } from './manifest';
+import {
+  DIGESTION_READY_BUDGET_MS,
+  LICENCE_ENABLE_BUDGET_MS,
+  POLL_INTERVAL_MS,
+  TRIP_END_BUDGET_MS,
+} from '../scenario/timeouts';
+import { FIXTURE_GMS_PREFIX, FIXTURE_VEHICLE_PREFIX, fixtureAssetKey, isFixtureTennaCam } from './identity';
+import { currentRunId, recordCreated, recordReused } from './manifest';
 
 const DRIVER_KEYS: readonly DriverKey[] = ['A', 'B', 'C', 'D'];
 
@@ -323,9 +344,11 @@ export async function ensureContacts(api: ApiClient): Promise<Record<DriverKey, 
     const name = DRIVER_NAMES[key];
     const taggedFirst = `${FIXTURE_PREFIX} ${name.first}`;
     let contact = existing.find((c) => c.first_name === taggedFirst && c.last_name === name.last);
+    const found = contact !== undefined;
     if (!contact) {
       const id = await createContact(api, taggedFirst, name.last);
       contact = await getContact(api, id);
+      recordCreated('contact', contact.id, key);
     } else if (!contact.enabled) {
       // A disabled contact left over from a stale prior run would silently corrupt every scenario
       // that assumes a clean baseline; scenarios that need a disabled contact do so explicitly via
@@ -333,7 +356,7 @@ export async function ensureContacts(api: ApiClient): Promise<Record<DriverKey, 
       await setContactEnabled(api, contact.id, true);
       contact = { ...contact, enabled: true };
     }
-    recordCreated('contact', contact.id, key);
+    if (found) recordReused('contact', contact.id, key);
     result[key] = contact;
   }
   return result;
@@ -356,48 +379,171 @@ async function verifyTrackerAssetAssociation(api: ApiClient, installationId: Uui
   await api.patch<void>(`/v5/tracker-asset-associations/${installationId}/verify`, { certification_passed: true });
 }
 
+/** How `provisionAssetWithTennaCam` picks its asset. */
+export interface AssetProvisionOptions {
+  /** A pinned asset id (`ASSET_ID` / `ASSET_ID_<FLEET>`). Used as-is instead of the fleet lookup. */
+  existingAssetId?: Uuid;
+  /**
+   * Always create a new asset for this worker instead of reusing the fleet's asset. For a fleet
+   * whose scenarios need an asset with no trip history (O21, "an asset's very first trip").
+   */
+  freshAsset?: boolean;
+}
+
 /**
- * A fully installed and verified TennaCAM 2.0, on `existingAssetId` if given, otherwise on a
- * freshly created asset, then waits for Digestion to resolve it. `label` tags every created
- * resource in the run manifest (see `manifest.ts`); pass the fleet name, or `<fleet>-secondary`
- * for a scenario's lazily-provisioned second asset.
+ * Creates the fixture asset for `fleetKey`. A 409 here means the fleet number is taken even
+ * though `findAssetByFleet` found no live asset with it, which is what a soft-deleted fixture
+ * asset holding its fleet number would look like.
+ */
+async function createFixtureAsset(api: ApiClient, fleetKey: string): Promise<Uuid> {
+  try {
+    return await createAsset(api, {
+      name: fleetKey,
+      fleet: fleetKey,
+      category_id: await resolveAssetCategoryId(api),
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 409) {
+      throw new Error(
+        `createFixtureAsset: account ${api.accountId} rejected fleet "${fleetKey}" as already used, but ` +
+          'no live asset has it. A deleted asset probably still holds the fleet number. Restore that ' +
+          'asset, or set FIXTURE_NAMESPACE in .env to give this suite a fresh set of fleet numbers.',
+      );
+    }
+    throw err;
+  }
+}
+
+/** The installed fixture TennaCAM's identifiers, or a throw when a real device is installed. */
+function reusableTracker(asset: Asset, installed: AssetTracker): {
+  trackerId: Uuid;
+  gmsSerial: string;
+  vehicleId: string;
+  installationId: Uuid;
+} {
+  if (!isFixtureTennaCam(installed)) {
+    throw new Error(
+      `provisionAssetWithTennaCam: asset ${asset.id} ("${asset.name}") has tracker ${installed.id} ` +
+        `installed (type "${installed.type}", serial "${installed.serial_number}"), which this suite did ` +
+        `not create. A fixture TennaCAM is a "${TENNACAM_2_TYPE}" whose serial starts with ` +
+        `"${FIXTURE_GMS_PREFIX}" and whose Rosco vehicle_id starts with "${FIXTURE_VEHICLE_PREFIX}". ` +
+        'Refusing to drive telemetry through a real device. Uninstall it from the asset, or pin a different asset.',
+    );
+  }
+  return {
+    trackerId: installed.id,
+    gmsSerial: installed.serial_number,
+    // isFixtureTennaCam has checked this is a non-empty fixture vehicle id.
+    vehicleId: installed.secondary_tracker_serial_number as string,
+    installationId: installed.tracker_asset_association_id,
+  };
+}
+
+/**
+ * Closes a trip a previous run left open on a reused asset, by sending the tracker an `IGN_OFF`
+ * now. Without it, this run's first `IGN_ON` would land inside a trip that never ended. Only the
+ * newest trip is checked, since only the newest can still be open. If the trip has not closed
+ * within TRIP_END_BUDGET_MS this warns and carries on: the runner already ignores trips that
+ * existed before each execution (`capturePreExistingTrips`), so a stuck trip is noise, not a
+ * broken baseline.
+ */
+async function closeLeftoverTrip(api: ApiClient, assetId: Uuid, gmsSerial: string): Promise<void> {
+  const [newest] = await searchTrips(api, { assetId, limit: 1 });
+  if (!newest || newest.end_date !== null) return;
+
+  await createTelemetryEmitter(api).send({ gmsSerial, event: 'IGN_OFF', atIso: new Date().toISOString() });
+  try {
+    await expect
+      .poll(async () => (await getTrip(api, newest.id)).end_date !== null, {
+        timeout: TRIP_END_BUDGET_MS,
+        intervals: [POLL_INTERVAL_MS],
+      })
+      .toBe(true);
+  } catch {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[provision] trip ${newest.id} on asset ${assetId} was left open by an earlier run and did not ` +
+        `close within ${TRIP_END_BUDGET_MS}ms of an IGN_OFF. Carrying on, since scenarios ignore trips ` +
+        'that existed before they started.',
+    );
+  }
+}
+
+/**
+ * A fully installed and verified TennaCAM 2.0 on the asset for `label`, with Digestion resolving
+ * it and the asset reset to a clean baseline.
+ *
+ * The asset is, in order: the pinned `opts.existingAssetId`, otherwise the account's asset whose
+ * fleet is `fixtureAssetKey(label)`, otherwise a new one with that fleet. With `opts.freshAsset` it
+ * is always new, under a fleet value that carries this worker's run id.
+ *
+ * The tracker is the fixture TennaCAM already installed on the asset when there is one, otherwise
+ * a new one created, associated with the account and installed. Either way the install ends up
+ * verified. `label` is the fleet name, or `<fleet>-secondary` for a scenario's second asset, and
+ * tags every fixture in the run manifest (see `manifest.ts`).
  */
 export async function provisionAssetWithTennaCam(
   api: ApiClient,
   label: string,
-  existingAssetId?: Uuid,
+  opts: AssetProvisionOptions = {},
 ): Promise<Omit<RunContext, 'contacts'>> {
-  let assetId = existingAssetId;
-  if (!assetId) {
-    assetId = await createAsset(api, {
-      name: `${FIXTURE_PREFIX}-${label}-${currentRunId()}`,
-      // Fleet numbers are unique per account (409 "fleet number has been already used").
-      fleet: `${FIXTURE_PREFIX}-${label}-${currentRunId()}`,
-      category_id: await resolveAssetCategoryId(api),
-    });
+  const stableKey = fixtureAssetKey(label, env.fixtureNamespace);
+  const fleetKey = opts.freshAsset ? `${stableKey}-${currentRunId().slice(FIXTURE_PREFIX.length + 1)}` : stableKey;
+
+  let asset: Asset | null = null;
+  if (opts.existingAssetId) {
+    asset = await getAssetWithTracker(api, opts.existingAssetId);
+  } else if (!opts.freshAsset) {
+    asset = await findAssetByFleet(api, fleetKey);
+  }
+
+  let assetId: Uuid;
+  if (asset) {
+    assetId = asset.id;
+    recordReused('asset', assetId, label);
+  } else {
+    assetId = await createFixtureAsset(api, fleetKey);
     recordCreated('asset', assetId, label);
   }
 
-  // createTennaCam2 does not generate its own identifiers — it takes the GMS serial and Rosco
-  // vehicle_id as input. There is no real device pool for this suite, so both are fixture-minted
-  // here.
-  // VERIFY: confirm the ingestion branch and Digestion accept an arbitrary, never-seen-before
-  // serial/vehicle_id pair for a nonprod fixture tracker rather than requiring one from a real
-  // device allowlist.
-  const gmsSerial = `${FIXTURE_PREFIX}-gms-${randomUUID().slice(0, 12)}`;
-  const vehicleId = `${FIXTURE_PREFIX}-veh-${randomUUID().slice(0, 12)}`;
-  const trackerId = await createTennaCam2(api, { gmsSerial, vehicleId });
-  recordCreated('tracker', trackerId, label);
+  let trackerId: Uuid;
+  let gmsSerial: string;
+  let vehicleId: string;
+  let installationId: Uuid;
+  const installed = asset?.tracker ?? null;
+  if (asset && installed) {
+    ({ trackerId, gmsSerial, vehicleId, installationId } = reusableTracker(asset, installed));
+    recordReused('tracker', trackerId, label);
+    recordReused('tracker-asset-association', installationId, label);
+  } else {
+    // createTennaCam2 does not generate its own identifiers. It takes the GMS serial and Rosco
+    // vehicle_id as input, and there is no real device pool for this suite, so both are
+    // fixture-minted here, with the prefixes `isFixtureTennaCam` later recognizes.
+    gmsSerial = `${FIXTURE_GMS_PREFIX}${randomUUID().slice(0, 12)}`;
+    vehicleId = `${FIXTURE_VEHICLE_PREFIX}${randomUUID().slice(0, 12)}`;
+    trackerId = await createTennaCam2(api, { gmsSerial, vehicleId });
+    recordCreated('tracker', trackerId, label);
 
-  const accountAssociationId = await associateTrackerWithAccount(api, trackerId, api.accountId);
-  recordCreated('tracker-account-association', accountAssociationId, label);
+    const accountAssociationId = await associateTrackerWithAccount(api, trackerId, api.accountId);
+    recordCreated('tracker-account-association', accountAssociationId, label);
 
-  const installationId = await installTrackerOnAsset(api, trackerId, assetId, accountAssociationId);
-  recordCreated('tracker-asset-association', installationId, label);
+    installationId = await installTrackerOnAsset(api, trackerId, assetId, accountAssociationId);
+    recordCreated('tracker-asset-association', installationId, label);
+  }
 
-  await verifyTrackerAssetAssociation(api, installationId);
+  // A run that died between install and verify leaves the install unverified, so check rather
+  // than assume, even on a reused tracker.
+  const installation = await getTrackerAssetAssociation(api, installationId);
+  if (installation.certification_passed !== true) {
+    await verifyTrackerAssetAssociation(api, installationId);
+  }
 
   await waitForDigestionReady(api, vehicleId, DIGESTION_READY_BUDGET_MS);
+
+  if (asset) {
+    await closeLeftoverTrip(api, assetId, gmsSerial);
+  }
+  await setAssetAssignee(api, assetId, null);
 
   return {
     runId: currentRunId(),
@@ -415,10 +561,15 @@ export async function provisionAssetWithTennaCam(
 
 /**
  * The whole run for one fleet: preflight checks, the shared driver contacts, and the fleet's
- * primary asset (pinned via `suiteAssetId(fleet)` when set, otherwise freshly created). `api` must
- * already be scoped to the fleet's account (`suiteAccountId(fleet)`) — see `fixtures/test.ts`.
+ * primary asset (pinned via `suiteAssetId(fleet)` when set, otherwise the fleet's reused asset, or a
+ * new one with `freshAsset`). `api` must already be scoped to the fleet's account
+ * (`suiteAccountId(fleet)`), see `fixtures/test.ts`.
  */
-export async function provisionFleetRun(api: ApiClient, fleet: string): Promise<RunContext> {
+export async function provisionFleetRun(
+  api: ApiClient,
+  fleet: string,
+  opts: { freshAsset?: boolean } = {},
+): Promise<RunContext> {
   assertLicenceFleetIsolated(fleet);
   await assertExpectedAccount(api, api.accountId, fleet);
 
@@ -431,6 +582,9 @@ export async function provisionFleetRun(api: ApiClient, fleet: string): Promise<
   }
 
   const contacts = await ensureContacts(api);
-  const base = await provisionAssetWithTennaCam(api, fleet, suiteAssetId(fleet));
+  const base = await provisionAssetWithTennaCam(api, fleet, {
+    existingAssetId: suiteAssetId(fleet),
+    freshAsset: opts.freshAsset,
+  });
   return { ...base, contacts };
 }

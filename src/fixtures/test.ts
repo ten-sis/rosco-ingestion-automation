@@ -40,6 +40,11 @@ const DEFAULT_FLEET = 'fr-setup';
 interface WorkerFixtures {
   /** Test option (see module doc comment). Set once per file via `defineScenarioTests`. */
   fleet: string;
+  /**
+   * Test option. When true, this file's worker creates new assets instead of reusing the fleet's
+   * (see `provisionAssetWithTennaCam`). Set via `defineScenarioTests(..., { freshAsset: true })`.
+   */
+  freshAsset: boolean;
   fr: ScenarioContext;
   /**
    * `fr.run`, exposed as its own worker-scoped fixture so a plain provisioning-smoke-test (see
@@ -53,9 +58,10 @@ interface WorkerFixtures {
 // eslint-disable-next-line @typescript-eslint/ban-types -- no test-scoped fixtures of our own.
 export const test = base.extend<{}, WorkerFixtures>({
   fleet: [DEFAULT_FLEET, { option: true, scope: 'worker' }],
+  freshAsset: [false, { option: true, scope: 'worker' }],
 
   fr: [
-    async ({ fleet }, use, workerInfo) => {
+    async ({ fleet, freshAsset }, use, workerInfo) => {
       // `playwrightRequest.newContext()` is the top-level `request` API, not the test's built-in
       // `request` fixture, because `fr` is worker-scoped and a worker-scoped fixture cannot depend
       // on a test-scoped one. That means it inherits none of `playwright.config.ts`'s `use` block —
@@ -70,7 +76,7 @@ export const test = base.extend<{}, WorkerFixtures>({
         timeout: requestTimeoutMs,
       });
       const api = ApiClient.create(requestContext, { accountId: suiteAccountId(fleet) });
-      const run = await provisionFleetRun(api, fleet);
+      const run = await provisionFleetRun(api, fleet, { freshAsset });
       const emitter = createDriverEventEmitter(api);
       const telemetry = createTelemetryEmitter(api);
       const reader = createDriverEventsReader(api);
@@ -78,7 +84,8 @@ export const test = base.extend<{}, WorkerFixtures>({
       // Memoized lazily: the first scenario that needs a secondary asset provisions it; every
       // later call (this scenario or a future one, or a `repeat` iteration) reuses the same
       // promise. Secondary assets are never pinned — AGENT-BRIEF revision 2's per-fleet pinning
-      // (`suiteAssetId`) only names the fleet's PRIMARY asset.
+      // (`suiteAssetId`) only names the fleet's PRIMARY asset. Like the primary, it is reused
+      // across runs under its own fleet key, `<fleet>-secondary`.
       let secondaryPromise: Promise<RunContext> | undefined;
       const sc: ScenarioContext = {
         api,
@@ -89,7 +96,7 @@ export const test = base.extend<{}, WorkerFixtures>({
         reader,
         t0: new Date(),
         secondaryAsset: () => {
-          secondaryPromise ??= provisionAssetWithTennaCam(api, `${fleet}-secondary`).then((b) => ({
+          secondaryPromise ??= provisionAssetWithTennaCam(api, `${fleet}-secondary`, { freshAsset }).then((b) => ({
             ...b,
             contacts: run.contacts,
           }));
@@ -124,11 +131,16 @@ const SLOW_TEST_HEADROOM_MS = 60_000;
  * the fleet name this spec file owns (AGENT-BRIEF revision 2 item 1) — it both selects the
  * `ASSET_ID_<FLEET>`/`ACCOUNT_ID_<FLEET>` env overrides (`src/env.ts`) and, for a fixture-driven
  * scenario, scopes which fixtures `runner.ts` searches for an id match (see the convention
- * documented at the top of `scenario/runner.ts`). Call once per spec file, at module scope, before
- * any test needs the `fr`/`runContext` fixtures.
+ * documented at the top of `scenario/runner.ts`). `opts.freshAsset` makes this file's worker create
+ * new assets instead of reusing the fleet's. Call once per spec file, at module scope, before any
+ * test needs the `fr`/`runContext` fixtures.
  */
-export function defineScenarioTests(scenarios: readonly Scenario[], fleet: string): void {
-  test.use({ fleet });
+export function defineScenarioTests(
+  scenarios: readonly Scenario[],
+  fleet: string,
+  opts: { freshAsset?: boolean } = {},
+): void {
+  test.use({ fleet, freshAsset: opts.freshAsset ?? false });
   for (const scenario of scenarios) {
     const tags = (scenario.tags ?? []).join(' ');
     const title = `${scenario.id} @mutating ${tags} ${scenario.title}`.replace(/\s+/g, ' ').trim();

@@ -88,6 +88,25 @@ export async function installTrackerOnAsset(
   );
 }
 
+export interface TrackerAssetAssociation {
+  id: Uuid;
+  asset_id: Uuid;
+  tracker_id: Uuid;
+  /** True once the install has been verified. Null before a verify decision. */
+  certification_passed: boolean | null;
+}
+
+/**
+ * Reads a tracker-asset installation. `certification_passed` is what shows it was verified:
+ * observed live on dv3 2026-09-28, a verified install has `certification_passed: true` and a
+ * `certification_decision_at`, while `install_completed_at` stays null even then.
+ */
+export async function getTrackerAssetAssociation(api: ApiClient, id: Uuid): Promise<TrackerAssetAssociation> {
+  return api.get<TrackerAssetAssociation>(`/v5/tracker-asset-associations/${id}`, {
+    query: { fields: 'id,asset_id,tracker_id,certification_passed' },
+  });
+}
+
 /**
  * Removes a tracker-asset installation.
  * Confirmed: utility-test-driver/src/services/trackers.ts:75-83 (DELETE by association id).

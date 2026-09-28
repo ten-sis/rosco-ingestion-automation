@@ -73,8 +73,24 @@ export interface Asset {
   id: Uuid;
   account_id: Uuid;
   name: string;
+  fleet?: string;
   /** Present when the asset is read with the contacts include. See `AssetAssigneeContact`. */
   contacts?: { assignee?: AssetAssigneeContact } | null;
+  /** Present when the asset is read with the tracker include. Null when nothing is installed. */
+  tracker?: AssetTracker | null;
+}
+
+/**
+ * The installed tracker as `include=tracker` returns it on `POST /v5/assets/search` and
+ * `GET /v5/assets/:id`. Observed live on dv3 2026-09-28, which also confirmed that
+ * `tracker_asset_association_id` is on it, so the install can be read without a second lookup.
+ */
+export interface AssetTracker {
+  id: Uuid;
+  type: string;
+  serial_number: string;
+  secondary_tracker_serial_number: string | null;
+  tracker_asset_association_id: Uuid;
 }
 
 export interface Tracker {

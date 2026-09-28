@@ -61,14 +61,33 @@ export async function getAsset(api: ApiClient, id: Uuid): Promise<Asset> {
   return api.get<Asset>(`/v5/assets/${id}`, { query: { include: 'contacts' } });
 }
 
-/** Finds a fixture asset by exact name, or null when nothing matches. */
-export async function findAssetByName(api: ApiClient, name: string): Promise<Asset | null> {
-  // VERIFY: confirm the POST /v5/assets/search filter key for an exact name match (assumed
-  // `name`, a plain top-level key, mirroring how assetFactory.js:17 and other v5 array-body
-  // endpoints take flat fields). Response envelope `{ results: [...] }` is confirmed by
-  // utility-test-driver/src/services/assets.ts:16-19 (ApiSearchAssetsResponse).
-  const response = await api.post<AssetSearchResponse>('/v5/assets/search', { name, limit: 1 });
+/**
+ * Finds the asset whose fleet number is exactly `fleet`, with its installed tracker, or null when
+ * there is none. `fleetStrict` is an equality match (`assets/v4/controller.js`,
+ * `where.fleet = req.filters.fleetStrict`), unlike the substring `fleet` and `name` filters.
+ * Confirmed live on dv3 2026-09-28: a full fleet value returns its one asset, and a prefix of it
+ * returns nothing. Fleet numbers are unique per account, so a second match means something is
+ * badly wrong and this throws rather than picking one.
+ */
+export async function findAssetByFleet(api: ApiClient, fleet: string): Promise<Asset | null> {
+  const response = await api.post<AssetSearchResponse>('/v5/assets/search', {
+    fleetStrict: fleet,
+    include: ['tracker'],
+    limit: 2,
+  });
+  if (response.results.length > 1) {
+    throw new Error(
+      `findAssetByFleet: ${response.results.length} assets on account ${api.accountId} have fleet ` +
+        `"${fleet}" (${response.results.map((a) => a.id).join(', ')}). Fleet numbers are meant to be ` +
+        'unique per account. Fix the duplicates by hand before running this suite.',
+    );
+  }
   return response.results[0] ?? null;
+}
+
+/** Reads an asset with its installed tracker (null when nothing is installed). */
+export async function getAssetWithTracker(api: ApiClient, id: Uuid): Promise<Asset> {
+  return api.get<Asset>(`/v5/assets/${id}`, { query: { include: 'tracker' } });
 }
 
 /**

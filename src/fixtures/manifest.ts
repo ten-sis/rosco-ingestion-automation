@@ -15,7 +15,8 @@ import { FIXTURE_PREFIX } from '../constants';
 export interface RunManifest {
   runId: string;
   startedAt: string;
-  created: Array<{ kind: string; id: string; note?: string }>;
+  /** Every fixture the run used. `reused: true` marks one found from an earlier run, not created. */
+  created: Array<{ kind: string; id: string; note?: string; reused?: true }>;
 }
 
 let runId: string | undefined;
@@ -35,6 +36,12 @@ export function currentRunId(): string {
 export function recordCreated(kind: string, id: string, note?: string): void {
   currentRunId();
   created.push(note === undefined ? { kind, id } : { kind, id, note });
+}
+
+/** Records one fixture this run found from an earlier run and reused instead of creating. */
+export function recordReused(kind: string, id: string, note?: string): void {
+  currentRunId();
+  created.push(note === undefined ? { kind, id, reused: true } : { kind, id, note, reused: true });
 }
 
 /** Writes the manifest accumulated so far to `.runs/<runId>.json`, creating the directory if needed. */
