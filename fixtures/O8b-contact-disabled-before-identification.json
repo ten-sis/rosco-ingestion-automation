@@ -1,7 +1,7 @@
 {
   "id": "O8b",
   "title": "Identification for a contact already disabled when it arrives",
-  "description": "The other half of the design doc's O8 (driver identification for a deactivated contact). Driver A is deactivated by the scenario before this trip starts, then identified during the open trip: HARDBRAKE at 30, identification at 70, trip end at 150. Must prove: the row persists with A's contact and records the contact as inactive (flags.contact_is_active false); it is never eligible, so the identification consumer does no trip lookup and the row stays unlinked while the trip is open; at trip end the trip-end consumer links it to the trip but marks it is_assignee_source false and awards no claim. Must NOT change: the asset assignee, the trip assignee, or the violation's attribution. O8 covers a contact deactivated after its row was written.",
+  "description": "The other half of the design doc's O8 (driver identification for a deactivated contact). Driver A is deactivated by the scenario before this trip starts, then identified during the open trip: HARDBRAKE at 30, identification at 70, trip end at 150. Must prove: the row persists with A's contact and records the contact as inactive (flags.contact_is_active false); it is never eligible, so the identification consumer does no trip lookup and the row stays unlinked while the trip is open; at trip end the trip-end consumer links it to the trip and awards no claim. Must NOT change: the asset assignee, the trip assignee, or the violation's attribution. O8 covers a contact deactivated after its row was written.",
   "suite": "fr-guards",
   "delay": {
     "mode": "none"

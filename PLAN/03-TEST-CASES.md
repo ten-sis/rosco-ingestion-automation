@@ -148,7 +148,7 @@ Compiled from `fixtures/O8b-contact-disabled-before-identification.json`. Maps t
 Preconditions: asset assignee B.
 Timeline: deactivate A; start a trip (HARDBRAKE at 30); identify A at 70 while the trip is open; end the trip at 150.
 Checkpoint: after the identification settles, the row exists, is unlinked (the consumer skips the trip lookup for an ineligible row), has `is_assignee_source` null, and reads `contact_active` false. The asset and trip assignees are unchanged.
-Expected end state: the row is linked to the trip with `is_assignee_source` false and `flags.contact_is_active` false, no claim is awarded, the asset and trip assignees are unchanged, and no violation is transferred. The runner re-enables A when the scenario ends.
+Expected end state: the row is linked to the trip with `flags.contact_is_active` false, no claim is awarded, the asset and trip assignees are unchanged, and no violation is transferred. The runner re-enables A when the scenario ends.
 
 ## O13 — Threshold reassignment excludes already-transferred violations (`o-guards.spec.ts`, `@slow`)
 

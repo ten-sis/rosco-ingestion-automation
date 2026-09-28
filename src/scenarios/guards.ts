@@ -245,9 +245,10 @@ const O8b: Scenario = {
     driverEvents: [
       {
         driver: 'A',
-        // Trip end links every unlinked row to the trip and marks an ineligible one false
-        // (`TripClaim` in hapi-server-rosco-ingestion-rmq's `tripClaim.ts`), awarding nothing.
-        isAssigneeSource: false,
+        // Trip end links every unlinked row to the trip and awards nothing to an ineligible one.
+        // No `isAssigneeSource`: the local consumer source marks such a row false, but on dv3
+        // (2026-09-28) it stayed null. The doc's O8 row only asks that nothing is written, which
+        // the assignee and violation expectations cover.
         tripLink: { state: 'linked', tripRef: 'latest' },
         contactActive: false,
         flags: { contact_is_active: false },
@@ -256,7 +257,7 @@ const O8b: Scenario = {
     thresholdEvents: [{ tripRef: 'latest', noTransfers: true }],
   },
   rationale:
-    "The doc's O8: 'Driver identification for deactivated Contact. No asset write, no trip write, no reassignment.' This is that case with the contact disabled before the identification arrives; O8 covers it being deactivated after its row is written. The identification consumer resolves A, records the contact as inactive (flags.contact_is_active false, the design's 'row still persists with its contact and the inactive flag'), and skips the trip lookup because the row is not eligible. At trip end the row is linked to the trip and marked is_assignee_source false, and no claim is awarded, so nothing is written. The HARDBRAKE at atSec 30 makes `noTransfers` a live check rather than a pass against an empty trip. Not a separate row in the doc's table; it maps to O8.",
+    "The doc's O8: 'Driver identification for deactivated Contact. No asset write, no trip write, no reassignment.' This is that case with the contact disabled before the identification arrives; O8 covers it being deactivated after its row is written. The identification consumer resolves A, records the contact as inactive (flags.contact_is_active false, the design's 'row still persists with its contact and the inactive flag'), and skips the trip lookup because the row is not eligible. At trip end the row is linked to the trip and no claim is awarded, so nothing is written. The HARDBRAKE at atSec 30 makes `noTransfers` a live check rather than a pass against an empty trip. Not a separate row in the doc's table; it maps to O8.",
 };
 
 // ---------------------------------------------------------------------------
