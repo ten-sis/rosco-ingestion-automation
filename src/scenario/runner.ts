@@ -179,7 +179,29 @@ export async function runScenario(scenario: Scenario, baseSc: ScenarioContext): 
 
 /** Every `Scenario` carries a `timeline` — see the module doc comment above. */
 async function runOneExecution(scenario: Scenario, baseSc: ScenarioContext, rep: number): Promise<void> {
-  await runTimelineExecution(scenario, baseSc, rep);
+  try {
+    await runTimelineExecution(scenario, baseSc, rep);
+  } finally {
+    await reactivateDeactivatedContacts(scenario, baseSc);
+  }
+}
+
+/**
+ * Re-enables every driver this scenario's timeline deactivates, whether it passed or failed. The
+ * contacts are shared by every scenario on the worker, and `ensureContacts` only re-enables them
+ * when a worker starts, so a driver left disabled would silently change the outcome of the next
+ * scenario in the file (O8 used to leave A disabled ahead of O13).
+ */
+async function reactivateDeactivatedContacts(scenario: Scenario, sc: ScenarioContext): Promise<void> {
+  const drivers = new Set(scenario.timeline.flatMap((s) => (s.kind === 'deactivateContact' ? [s.driver] : [])));
+  for (const driver of drivers) {
+    try {
+      await setContactEnabled(sc.api, sc.run.contacts[driver].id, true);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(`[runner] ${scenario.id}: could not re-enable driver ${driver}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 }
 
 function referencesSecondaryAsset(scenario: Scenario): boolean {

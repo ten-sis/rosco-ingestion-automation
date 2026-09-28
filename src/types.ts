@@ -123,10 +123,12 @@ export interface DriverEventRow {
   trip_id: Uuid | null;
   is_assignee_source: boolean | null;
   /**
-   * Whether the resolved contact was live when the row was written. The design makes this a
-   * first-class column precisely because the award step's eligibility predicate reads it, and
-   * says explicitly that nothing in `flags` decides anything. Assert the contact-status guard
-   * through this, never through a flag.
+   * Whether the resolved contact was live when the row was written. Not a column: the table has
+   * none, so the readers derive it from `flags.contact_is_active` (`false` when that flag is
+   * `false`, `true` when a contact resolved without it, `null` when no contact resolved). It is the
+   * insert-time snapshot the claim's eligibility check reads. The trip-end contact-status guard
+   * re-checks the contact's live state instead, so a contact deactivated after its row was written
+   * still reads `true` here (O8).
    */
   contact_active: boolean | null;
   trip_driver_set_at: string | null;
@@ -144,7 +146,16 @@ export interface DriverEventRow {
  * These three keys are the whole domain (design doc, rosco_driver_events flags column). There is
  * deliberately no `contact_inactive`: contact status is asserted through `contact_active`.
  */
+/**
+ * The `flags` JSONB on a `rosco_driver_events` row, as the consumer writes it
+ * (`DriverEventFlags` in hapi-server-rosco-ingestion-rmq's `driverEventsCrud.ts`). Only notable
+ * values are recorded, so an absent key is the normal case. The design doc's data-model table
+ * names the contact key `contact_inactive`; the code writes `contact_is_active` (checked
+ * 2026-09-28).
+ */
 export interface DriverEventFlags {
+  /** `false` when the contact resolved but was already disabled when the row was written. */
+  contact_is_active?: boolean;
   arrived_before_trip_created?: boolean;
   arrived_after_trip_ended?: boolean;
   resulted_in_assignee_change?: boolean;

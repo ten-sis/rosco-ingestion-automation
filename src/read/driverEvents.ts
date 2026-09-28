@@ -48,10 +48,18 @@ function normaliseFlags(flags: unknown): DriverEventRow['flags'] {
   if (typeof flags !== 'object' || flags === null) return null;
   const f = flags as Record<string, unknown>;
   return {
+    ...(typeof f.contact_is_active === 'boolean' ? { contact_is_active: f.contact_is_active } : {}),
     arrived_before_trip_created: Boolean(f.arrived_before_trip_created),
     arrived_after_trip_ended: Boolean(f.arrived_after_trip_ended),
     resulted_in_assignee_change: Boolean(f.resulted_in_assignee_change),
   };
+}
+
+/** See `DriverEventRow.contact_active`: derived from the flags, since the table has no column. */
+function contactActiveOf(contactId: unknown, flags: unknown): boolean | null {
+  if (!contactId) return null;
+  const f = typeof flags === 'object' && flags !== null ? (flags as Record<string, unknown>) : {};
+  return f.contact_is_active !== false;
 }
 
 /**
@@ -64,21 +72,13 @@ function toIsoString(value: unknown): string {
 }
 
 /**
- * Maps one raw row (API projection or SQL row) onto `DriverEventRow`.
- *
- * The OpenAPI spec
- * (`claude-tasks/TS-43579-facial-recognition-hld/openapi/backend-crud-rosco-driver-events.openapi.yaml`,
- * `RoscoDriverEventCore.driver_id`) and the design doc (`ROSCO_FACIAL_RECOGNITION_DESIGN.md:668`)
- * both name the vendor-claimed identity field `driver_id`; `src/types.ts`'s `DriverEventRow`
- * (written by another module, not editable here) calls the same concept `driver_guid`. Both
- * spellings are accepted below so a naming drift between the spec and the eventual implementation
- * does not silently drop the field — the SQL reader's own query aliases its `driver_id` column
- * onto the `driver_guid` output key (see `DRIVER_EVENTS_TABLE_QUERY`), so only that branch of the
- * fallback ever fires today, but the API branch is kept for whichever spelling the live endpoint
- * actually returns once it ships.
+ * Maps one raw row (API projection or SQL row) onto `DriverEventRow`. The table carries the
+ * resolved Tenna contact as `contact_id`, which is the payload's `driver_guid`, so `driver_guid`
+ * comes from the raw payload in `data` when present and falls back to `contact_id`.
  */
 function toDriverEventRow(raw: Record<string, unknown>): DriverEventRow {
-  const driverGuid = (raw.driver_guid ?? raw.driver_id) as string | null | undefined;
+  const data = (raw.data ?? null) as Record<string, unknown> | null;
+  const driverGuid = (data?.driver_guid ?? raw.contact_id) as string | null | undefined;
   return {
     id: raw.id as Uuid,
     account_id: raw.account_id as Uuid,
@@ -90,11 +90,11 @@ function toDriverEventRow(raw: Record<string, unknown>): DriverEventRow {
     driver_guid: driverGuid ?? null,
     trip_id: (raw.trip_id ?? null) as Uuid | null,
     is_assignee_source: (raw.is_assignee_source ?? null) as boolean | null,
-    contact_active: (raw.contact_active ?? null) as boolean | null,
+    contact_active: contactActiveOf(raw.contact_id, raw.flags),
     trip_driver_set_at: (raw.trip_driver_set_at ?? null) as string | null,
     timestamp: toIsoString(raw.timestamp),
     received_at: toIsoString(raw.received_at),
-    data: (raw.data ?? null) as Record<string, unknown> | null,
+    data,
     flags: normaliseFlags(raw.flags),
   };
 }
@@ -106,10 +106,10 @@ function isNotFound(err: unknown): boolean {
 const SEARCH_PATH = '/v5/rosco-driver-events/search';
 
 /**
- * Explicit field list for the search request, rather than relying on the endpoint's documented
- * default set (openapi `RoscoDriverEventSearchRequest.fields`): naming `contact_active` here is
- * what actually fixes it being surfaced (design brief defect: "neither reader surfaces it"),
- * and it keeps this reader correct even if the endpoint's own default field set ever narrows.
+ * Explicit field list for the search request, rather than relying on the endpoint's default set.
+ * These are the table's real columns. There is no `contact_active` or `driver_id` column (they were
+ * requested here before 2026-09-28 and always drew a 422); `contact_active` is derived from
+ * `flags` and `driver_guid` from `data` (`toDriverEventRow`).
  */
 const DRIVER_EVENT_FIELDS = [
   'id',
@@ -119,8 +119,6 @@ const DRIVER_EVENT_FIELDS = [
   'event_id',
   'type',
   'contact_id',
-  'contact_active',
-  'driver_id',
   'trip_id',
   'is_assignee_source',
   'trip_driver_set_at',
@@ -131,8 +129,9 @@ const DRIVER_EVENT_FIELDS = [
 ] as const;
 
 /**
- * The `fields` the deployed endpoint accepts, read out of its own 422. dv3 (2026-09-24) rejects
- * `contact_active` and `driver_id` with `keyword: "enum"` on `/fields/<n>` and lists the accepted
+ * The `fields` the deployed endpoint accepts, read out of its own 422. Kept as a safety net should
+ * a field in `DRIVER_EVENT_FIELDS` ever stop being accepted: the endpoint answers `keyword: "enum"`
+ * on `/fields/<n>` and lists the accepted
  * set in `params.allowedValues`. Returns undefined for any other error, so only this exact shape
  * triggers the retry.
  */
@@ -213,21 +212,16 @@ class ApiDriverEventsReader implements DriverEventsReader {
 }
 
 /**
- * The design (`ROSCO_FACIAL_RECOGNITION_DESIGN.md:668`) and the OpenAPI spec
- * (`openapi/backend-crud-rosco-driver-events.openapi.yaml:415`) both name this column `driver_id`,
- * not `driver_guid`. Selected here and aliased to `driver_guid` — the output key
- * `toDriverEventRow` reads first — rather than referencing both spellings, since only one of them
- * actually exists as a column; a query naming a column the table doesn't have fails outright, so
- * there is no way to tolerate an unknown spelling without a second, schema-probing round trip.
- * `contact_active` is selected alongside it: the design makes it a first-class column precisely
- * because the award step's eligibility predicate reads it (`:667`, `:688`).
+ * The table's real columns (backend-crud migration `20260917120000-create-rosco-driver-events`).
+ * It has no `driver_id` or `contact_active` column, which this query used to select, so it failed
+ * outright. `toDriverEventRow` derives both from `contact_id`, `data` and `flags`.
  */
 const DRIVER_EVENTS_TABLE_QUERY = `
   select id, account_id, asset_id, tracker_id, event_id, type, contact_id,
-         driver_id as driver_guid, trip_id, is_assignee_source, contact_active,
-         trip_driver_set_at, timestamp, received_at, data, flags
+         trip_id, is_assignee_source, trip_driver_set_at, timestamp, received_at, data, flags
     from rosco_driver_events
    where asset_id = $1 and timestamp >= $2 and timestamp <= $3
+     and deleted_at is null
    order by received_at asc
    limit 500
 `;

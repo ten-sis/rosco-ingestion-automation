@@ -392,12 +392,17 @@ function filterMatchingRows(rows: readonly DriverEventRow[], exp: DriverEventExp
   return rows.filter((r) => r.contact_id === expectedContactId && (exp.type === undefined || r.type === exp.type));
 }
 
-/** `undefined` and `false` are equal for every flag; only keys present in `expected` are checked. */
+/**
+ * Only keys present in `expected` are checked. An absent flag means its default: `false` for every
+ * flag except `contact_is_active`, which the consumer only writes when it is `false`, so absent
+ * means the contact was active.
+ */
 function assertFlags(actual: DriverEventFlags | null, expected: DriverEventFlags): void {
   for (const key of Object.keys(expected) as Array<keyof DriverEventFlags>) {
-    const expectedValue = expected[key] ?? false;
-    const actualValue = actual?.[key] ?? false;
-    expect(actualValue).toBe(expectedValue);
+    const absent = key === 'contact_is_active';
+    const expectedValue = expected[key] ?? absent;
+    const actualValue = actual?.[key] ?? absent;
+    expect(actualValue, `flags.${key}`).toBe(expectedValue);
   }
 }
 

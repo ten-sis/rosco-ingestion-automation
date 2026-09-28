@@ -19,6 +19,7 @@ import type { Scenario, Step } from '../scenario/types';
 import o71Fixture from '../../fixtures/O7.1-manual-correction-receipt-order.json';
 import o72Fixture from '../../fixtures/O7.2-identification-after-manual-change.json';
 import o8Fixture from '../../fixtures/O8-contact-deactivated-before-trip-end.json';
+import o8bFixture from '../../fixtures/O8b-contact-disabled-before-identification.json';
 import o13Fixture from '../../fixtures/O13-exclude-transferred-violations.json';
 import { expandFixtureToSteps, insertAfterIndex, lastIndexWhere } from './fixturePlayback';
 
@@ -179,29 +180,83 @@ const O8: Scenario = {
     driverEvents: [
       {
         driver: 'A',
-        isAssigneeSource: null,
+        // No `isAssigneeSource` here. The doc's O8 row asks for no asset write, no trip write and
+        // no reassignment, which the assignee expectations above cover. Whether the row itself
+        // wins the claim is not part of it: on dv3 (2026-09-28) the row won the claim
+        // (`is_assignee_source: true`) and the contact-status guard then blocked both writes,
+        // the stale-but-allowed state design doc line 690 describes.
         tripLink: { state: 'linked', tripRef: 'latest' },
-        // The guard's real input (design doc :667, :688: `contact_active` is a column, read by
-        // the award step's eligibility predicate, precisely because "nothing in flags decides
-        // anything"). Asserted directly rather than through a flag, replacing the previous
-        // `flags: { contact_inactive: false }`, which invented a key `DriverEventFlags` does not
-        // define and which "absent equals false" made unfalsifiable against any store, including
-        // no store at all.
-        // VERIFY: design doc :667 says `contact_active` is captured "at insert", and this row is
-        // inserted (unlinked) while the contact is still active -- deactivation happens
-        // afterward, per this fixture's own description. A literal reading of that line would
-        // have the stored value stay `true` (a stale-but-consistent state design line :690
-        // explicitly allows: a stale `contact_active` can let a row win the claim's own
-        // eligibility check and then still write nothing, once the live contact-status guard
-        // re-checks and blocks it). Asserted `false` here per this defect's fix instruction --
-        // confirm which one the first real implementation actually reports.
-        contactActive: false,
+        // No `contactActive` either. The contact is active when this row is written and is
+        // deactivated afterward, so the row's insert-time snapshot stays active (the table has no
+        // `contact_active` column; the snapshot is `flags.contact_is_active`, written only when
+        // false). What blocks the writes is the trip-end guard's live re-check of the contact
+        // (`contactIsLive` in hapi-server-rosco-ingestion-rmq's `tripClaim.ts`), which the
+        // assignee and violation expectations prove. O8b covers a contact already disabled at insert.
       },
     ],
     thresholdEvents: [{ tripRef: 'latest', noTransfers: true }],
   },
   rationale:
-    "The doc: 'Re-check the winning contact's live enabled and deleted state, rather than the row's contact_active snapshot, which records what was true at insert.' To exercise the live re-check rather than the insert-time snapshot, the identification is sent unlinked (no trip exists yet), so the claim decision is genuinely deferred to the trip-end consumer's award step, which finds A ineligible ('a resolved contact with contact_active true, and not soft-deleted') and stops. The row's own `contact_active` column -- asserted directly now, never through a flag -- is what actually proves this: it is a real column the design makes load-bearing for exactly this guard, so a store that has it wrong, or has no such column at all, now fails the assertion instead of trivially satisfying it the way an invented `flags.contact_inactive` key did. Compiled from fixtures/O8-contact-deactivated-before-trip-end.json (`delay.mode: 'full-burst'`, `burstStartAtSec: 20`: identification delivered live at deliverAtSec 0, before any trip exists, trip frames follow as a burst) via fixturePlayback.ts — another case whose declared burst delay mode now actually reaches the test; the `deactivateContact` step is spliced in right after the identification's own settle, since the fixture format has no field for it. The fixture carries a HARDBRAKE at atSec 30, before the identification's claimed atSec 60, so `thresholdEvents: { noTransfers: true }` is a live proof the deactivated contact never picks up a violation, not a vacuous pass against an empty trip.",
+    "The doc: 'Re-check the winning contact's live enabled and deleted state, rather than the row's frozen flag. Inactive or deleted skips the asset write, the trip write and the reassignment.' The identification is sent before any trip exists, so the claim is decided at trip end. A is active when the row is written, so the row is eligible and wins the claim, and A is deactivated before the trip ends. The trip-end consumer then re-checks A's live state and skips every write. The assignee and violation expectations are the proof. Compiled from fixtures/O8-contact-deactivated-before-trip-end.json (`delay.mode: 'full-burst'`, `burstStartAtSec: 20`: identification delivered at deliverAtSec 0, before any trip exists, trip frames follow as a burst) via fixturePlayback.ts; the `deactivateContact` step is spliced in right after the identification's own settle, since the fixture format has no field for it. The fixture carries a HARDBRAKE at atSec 30, before the identification's claimed atSec 60, so `thresholdEvents: { noTransfers: true }` is a live proof the deactivated contact never picks up a violation, not a vacuous pass against an empty trip. The runner re-enables A when the scenario ends",
+};
+
+// ---------------------------------------------------------------------------
+// O8b — compiled from fixtures/O8b-contact-disabled-before-identification.json
+// ---------------------------------------------------------------------------
+
+// A is deactivated before the trip starts, so the identification arrives for a contact that is
+// already disabled. The runner re-enables A when the scenario ends.
+const o8bBase: Step[] = [
+  { kind: 'deactivateContact', atSec: 0, driver: 'A', note: 'disabled before the identification arrives' },
+  ...expandFixtureToSteps(o8bFixture as Fixture),
+];
+const o8bIdentIndex = lastIndexWhere(o8bBase, (s) => s.kind === 'ident');
+const o8bWithIdentSettle = insertAfterIndex(o8bBase, o8bIdentIndex, {
+  kind: 'settle',
+  atSec: 71,
+  until: 'identificationPersisted',
+  budget: 'LIVE_BUDGET_MS',
+});
+const o8bIdentSettleIndex = o8bIdentIndex + 1;
+const o8bTimeline: Step[] = [...o8bWithIdentSettle, { kind: 'settle', atSec: 151, until: 'tripEnded', budget: 'TRIP_END_BUDGET_MS' }];
+
+const O8b: Scenario = {
+  id: 'O8b',
+  title: 'Identification for a contact already disabled when it arrives',
+  priority: 'P0',
+  tags: [],
+  // B keeps the 'unchanged' assertions falsifiable against a buggy consumer that writes A anyway.
+  preconditions: { assetAssignee: 'B' },
+  timeline: o8bTimeline,
+  expectAfterStep: [
+    {
+      afterIndex: o8bIdentSettleIndex,
+      expect: {
+        assetAssignee: { value: 'unchanged' },
+        trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
+        // Ineligible at insert, so the identification consumer does no trip lookup at all.
+        driverEvents: [{ driver: 'A', isAssigneeSource: null, tripLink: { state: 'unlinked' }, contactActive: false }],
+      },
+    },
+  ],
+  expect: {
+    assetAssignee: { value: 'unchanged' },
+    trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
+    driverEvents: [
+      {
+        driver: 'A',
+        // Trip end links every unlinked row to the trip and marks an ineligible one false
+        // (`TripClaim` in hapi-server-rosco-ingestion-rmq's `tripClaim.ts`), awarding nothing.
+        isAssigneeSource: false,
+        tripLink: { state: 'linked', tripRef: 'latest' },
+        contactActive: false,
+        flags: { contact_is_active: false },
+      },
+    ],
+    thresholdEvents: [{ tripRef: 'latest', noTransfers: true }],
+  },
+  rationale:
+    "The doc's O8: 'Driver identification for deactivated Contact. No asset write, no trip write, no reassignment.' This is that case with the contact disabled before the identification arrives; O8 covers it being deactivated after its row is written. The identification consumer resolves A, records the contact as inactive (flags.contact_is_active false, the design's 'row still persists with its contact and the inactive flag'), and skips the trip lookup because the row is not eligible. At trip end the row is linked to the trip and marked is_assignee_source false, and no claim is awarded, so nothing is written. The HARDBRAKE at atSec 30 makes `noTransfers` a live check rather than a pass against an empty trip. Not a separate row in the doc's table; it maps to O8.",
 };
 
 // ---------------------------------------------------------------------------
@@ -255,4 +310,4 @@ const O13: Scenario = {
     "The doc: 'Events before the winner's receipt time with a different assignee are transferred. Already-transferred events are excluded' because `transferred_by_id IS NULL OR = the FR service user` is part of the selection, and a human's manual transfer sets `transferred_by_id` to the human, taking that event out of scope permanently. Compiled from fixtures/O13-exclude-transferred-violations.json (three violations, HARDBRAKE at 60, HARDACCEL at 120, HARDTURN at 180; the identification claims atSec 190 but is not delivered until atSec 300, after both the trip closes at 220 and the manual transfer) via fixturePlayback.ts; the `transferViolations` step is spliced in right after the trip-end settle, before the delayed identification, since the fixture format has no field for a manual transfer. `stillAssignedTo` is the doc-mandated proof of the exclusion half of this case; the required `'unchanged'` negative control (resolved against the pre-timeline snapshot) is the checkpoint right after ignition-on, before anything in this scenario runs. // GAP: `ThresholdEventExpectation` has no way to assert that a specific non-'all' subset (here, the two events that are NOT the manually-transferred one) were reassigned to the winner while a named subset stays untouched; `allAssignedTo` only asserts that every event in the trip names the same driver, which is false in this scenario by design. This scenario can therefore only assert the exclusion half of O13 directly; the reassignment half is covered indirectly by the asset/trip assignee assertions above. Reported in the final summary rather than by editing scenario/types.ts.",
 };
 
-export const GUARDS_SCENARIOS: readonly Scenario[] = [O7_1, O7_2, O8, O13];
+export const GUARDS_SCENARIOS: readonly Scenario[] = [O7_1, O7_2, O8, O8b, O13];
