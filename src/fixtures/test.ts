@@ -24,6 +24,8 @@ import { createTelemetryEmitter } from '../emit/telemetry';
 import { createDriverEventsReader } from '../read/driverEvents';
 import type { ScenarioContext } from '../scenario/context';
 import { anchorTimeline, ANCHOR_MARGIN_MS, runScenario } from '../scenario/runner';
+import { describeExpectation } from '../reporting/describe';
+import { designDocCaseFor } from '../reporting/designDocCases';
 import { BACKFILL_BUDGET_MS } from '../scenario/timeouts';
 import type { Scenario } from '../scenario/types';
 import { provisionAssetWithTennaCam, provisionFleetRun } from './provision';
@@ -144,9 +146,19 @@ export function defineScenarioTests(
   for (const scenario of scenarios) {
     const tags = (scenario.tags ?? []).join(' ');
     const title = `${scenario.id} @mutating ${tags} ${scenario.title}`.replace(/\s+/g, ' ').trim();
+    // Read by `src/reporting/summaryReporter.ts` to print what each case is meant to prove.
+    const docCase = designDocCaseFor(scenario.id);
+    const annotation = [
+      { type: 'case', description: scenario.id },
+      { type: 'priority', description: scenario.priority },
+      { type: 'fleet', description: fleet },
+      { type: 'asserts', description: describeExpectation(scenario.expect) },
+      ...(docCase ? [{ type: 'doc-case', description: docCase.case }, { type: 'doc-expected', description: docCase.expected }] : []),
+    ];
     // The wait `anchorTimeline` adds before a delayed trip's first step, per execution.
     const startWaitMs = anchorTimeline(scenario.timeline, 0).startAtMs - ANCHOR_MARGIN_MS;
-    test(title, async ({ fr }, testInfo) => {
+    test(title, { annotation }, async ({ fr }, testInfo) => {
+      testInfo.annotations.push({ type: 'asset', description: `${fr.run.assetId} (tracker ${fr.run.trackerId})` });
       if (startWaitMs > 0) {
         test.setTimeout(testInfo.timeout + startWaitMs * (scenario.repeat ?? 1));
       }

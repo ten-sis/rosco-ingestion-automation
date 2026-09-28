@@ -46,7 +46,9 @@ export default defineConfig({
   retries: 0,
   timeout: 12 * 60 * 1000,
   expect: { timeout: 30_000 },
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // The summary reporter writes .runs/summary-<timestamp>.md: each case with the design doc's
+  // expected outcome and its result (src/reporting/summaryReporter.ts).
+  reporter: [['list'], ['html', { open: 'never' }], ['./src/reporting/summaryReporter.ts']],
   use: {
     // No `trace` here (reviewer finding 7). There is no browser and no Page/BrowserContext in this
     // suite, and `fr` (`src/fixtures/test.ts`) builds its own worker-scoped APIRequestContext via

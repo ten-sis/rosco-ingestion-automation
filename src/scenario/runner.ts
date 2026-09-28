@@ -69,7 +69,8 @@ import {
   waitForTripEnded,
 } from './waits';
 import { budgetFor, LIVE_BUDGET_MS, POLL_INTERVAL_MS, TRIP_APPEARS_BUDGET_MS, TRIP_END_BUDGET_MS } from './timeouts';
-import { expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { describeExpectation, describeStep } from '../reporting/describe';
 import type {
   Expectation,
   HarshEventStep,
@@ -230,8 +231,15 @@ async function runTimelineExecution(scenario: Scenario, baseSc: ScenarioContext,
     await capturePreExistingDriverEventRows(sc, secondary.assetId);
   }
 
-  await applyPreconditions(scenario, sc);
-  await captureUnchangedSnapshots(scenario, sc);
+  const runLabel = (scenario.repeat ?? 1) > 1 ? `run ${rep + 1}: ` : '';
+  // Every step and checkpoint below is a `test.step`, so a failure names where it happened, in the
+  // HTML report and in the run summary (`src/reporting/summaryReporter.ts`).
+  const asStep = <T>(title: string, body: () => Promise<T>): Promise<T> => test.step(`${runLabel}${title}`, body);
+
+  await asStep('preconditions', async () => {
+    await applyPreconditions(scenario, sc);
+    await captureUnchangedSnapshots(scenario, sc);
+  });
 
   const anchor = anchorTimeline(scenario.timeline, Date.now());
   sc.t0 = anchor.t0;
@@ -273,32 +281,42 @@ async function runTimelineExecution(scenario: Scenario, baseSc: ScenarioContext,
       // repeats, so both interleavings actually get exercised rather than always resolving the
       // same way (see the doc comment above `isRaceScenario`).
       const [firstStep, secondStep] = rep % 2 === 0 ? [step, next] : [next, step];
-      await beforeSteps([firstStep, secondStep]);
-      await Promise.all([deliverStep(sc, firstStep), deliverStep(sc, secondStep)]);
-      afterSteps([firstStep, secondStep]);
+      await asStep(`steps ${i + 1}+${i + 2} together: ${describeStep(firstStep)} / ${describeStep(secondStep)}`, async () => {
+        await beforeSteps([firstStep, secondStep]);
+        await Promise.all([deliverStep(sc, firstStep), deliverStep(sc, secondStep)]);
+        afterSteps([firstStep, secondStep]);
+      });
       for (const entry of scenario.expectAfterStep ?? []) {
         if (entry.afterIndex === i || entry.afterIndex === i + 1) {
-          await beforeAssertion();
-          await assertExpectation(entry.expect, sc);
+          await asStep(`checkpoint after step ${entry.afterIndex + 1}: ${describeExpectation(entry.expect)}`, async () => {
+            await beforeAssertion();
+            await assertExpectation(entry.expect, sc);
+          });
         }
       }
       i += 1; // both steps consumed
       continue;
     }
 
-    await beforeSteps([step]);
-    await deliverStep(sc, step);
-    afterSteps([step]);
+    await asStep(`step ${i + 1}: ${describeStep(step)}`, async () => {
+      await beforeSteps([step]);
+      await deliverStep(sc, step);
+      afterSteps([step]);
+    });
     for (const entry of scenario.expectAfterStep ?? []) {
       if (entry.afterIndex === i) {
-        await beforeAssertion();
-        await assertExpectation(entry.expect, sc);
+        await asStep(`checkpoint after step ${i + 1}: ${describeExpectation(entry.expect)}`, async () => {
+          await beforeAssertion();
+          await assertExpectation(entry.expect, sc);
+        });
       }
     }
   }
 
-  await beforeAssertion();
-  await assertExpectation(scenario.expect, sc);
+  await asStep(`final expect: ${describeExpectation(scenario.expect)}`, async () => {
+    await beforeAssertion();
+    await assertExpectation(scenario.expect, sc);
+  });
 }
 
 async function applyPreconditions(scenario: Scenario, sc: ScenarioContext): Promise<void> {
