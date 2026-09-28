@@ -42,7 +42,7 @@ interface ThresholdEventSearchResponse {
   /**
    * `thresholdEventList/index.ts:74-101` silently routes to a legacy V1 service with a different
    * field vocabulary when the trip's date predates `SCORECARD_V2_ENABLED_DATE`. The mapping below
-   * is only valid for V2, so `searchThresholdEvents` throws unless this is exactly `'V2'`.
+   * is only valid for V2, so `searchThresholdEvents` throws unless this is `'V2'` (any case).
    */
   metadata?: { dataVersion?: string };
 }
@@ -90,7 +90,8 @@ export async function searchThresholdEvents(
       fields: [...FIELDS],
     },
   );
-  if (response.metadata?.dataVersion !== 'V2') {
+  // dv3 returns "v2" (2026-09-28), so the check ignores case.
+  if (response.metadata?.dataVersion?.toUpperCase() !== 'V2') {
     throw new Error(
       `searchThresholdEvents(tripId=${tripId}): expected metadata.dataVersion "V2" but got ` +
         `${JSON.stringify(response.metadata?.dataVersion)}. thresholdEventList/index.ts:74-101 ` +
