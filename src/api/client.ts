@@ -98,6 +98,35 @@ function buildQuery(query: ApiCallOptions['query']): string {
   return pairs.length > 0 ? `?${pairs.join('&')}` : '';
 }
 
+/**
+ * Waits between attempts for a request that got no HTTP response at all, about 15 seconds in
+ * total. That covers a port-forward restarting after its pod went away, which on dv3 is frequent:
+ * the private node group runs on spot instances (see `scripts/tunnels.sh`).
+ */
+const CONNECTION_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000];
+
+/**
+ * How a request failed without an HTTP response, or null for any other error.
+ *
+ * `refused`: nothing was listening, so the request was never sent. Always safe to retry.
+ * `dropped`: the connection died mid-request, so the server may or may not have acted on it.
+ */
+function connectionFailure(err: unknown): 'refused' | 'dropped' | null {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/ECONNREFUSED/.test(message)) return 'refused';
+  if (/socket hang up|ECONNRESET|EPIPE/.test(message)) return 'dropped';
+  return null;
+}
+
+/**
+ * True when resending `method url` cannot write anything twice: a GET, or a POST to a `/search`
+ * route. A dropped write (create, patch, publish, telemetry) is never resent, because a resend
+ * could duplicate it, and for driver events that would change what the scenario is testing.
+ */
+function isReadOnly(method: string, url: string): boolean {
+  return method === 'get' || /\/search(\?|$)/.test(url);
+}
+
 function accepts(status: number, expected: ApiCallOptions['expectStatus']): boolean {
   if (expected === undefined) return status >= 200 && status < 300;
   const list = Array.isArray(expected) ? expected : [expected];
@@ -153,12 +182,7 @@ export class ApiClient {
     headers: Record<string, string>,
   ): Promise<T> {
     const started = Date.now();
-    const response = await this.request.fetch(url, {
-      method: method.toUpperCase(),
-      headers,
-      ...(body === undefined ? {} : { data: body }),
-      failOnStatusCode: false,
-    });
+    const response = await this.fetchRetryingConnectionFailures(method, url, body, headers);
     const status = response.status();
     if (env.debug) {
       // eslint-disable-next-line no-console
@@ -173,6 +197,41 @@ export class ApiClient {
       return JSON.parse(text) as T;
     } catch {
       return text as unknown as T;
+    }
+  }
+
+  /** `request.fetch`, retried per `CONNECTION_RETRY_DELAYS_MS` when no HTTP response came back. */
+  private async fetchRetryingConnectionFailures(
+    method: 'get' | 'post' | 'patch' | 'delete',
+    url: string,
+    body: unknown,
+    headers: Record<string, string>,
+  ): Promise<APIResponse> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.request.fetch(url, {
+          method: method.toUpperCase(),
+          // A fresh connection per call. A kept-alive socket left idle through a scenario's
+          // pauses (up to a minute between frames) was being closed on the port-forward side, and
+          // the next request on it died with "socket hang up" without ever reaching the service.
+          // For a write that can't be retried safely, so it has to not happen (o-guards run on
+          // dv3, 2026-09-28: O7.1's publish and O13's telemetry frame).
+          headers: { ...headers, connection: 'close' },
+          ...(body === undefined ? {} : { data: body }),
+          failOnStatusCode: false,
+        });
+      } catch (err) {
+        const failure = connectionFailure(err);
+        const retryable = failure === 'refused' || (failure === 'dropped' && isReadOnly(method, url));
+        const delayMs = CONNECTION_RETRY_DELAYS_MS[attempt];
+        if (!retryable || delayMs === undefined) throw err;
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[api] ${method.toUpperCase()} ${url}: connection ${failure}, retrying in ${delayMs}ms ` +
+            `(attempt ${attempt + 2} of ${CONNECTION_RETRY_DELAYS_MS.length + 1})`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
     }
   }
 

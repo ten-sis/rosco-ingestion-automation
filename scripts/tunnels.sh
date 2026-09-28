@@ -82,6 +82,8 @@ AWS_PROFILE_NAME="${AWS_PROFILE:-default}"
 
 READY_TIMEOUT_SECONDS=20
 RESTART_DELAY_SECONDS=2
+PROBE_INTERVAL_SECONDS=5
+PROBE_FAILURES_BEFORE_RESTART=2
 
 log() { printf '[tunnels] %s\n' "$*"; }
 die() { printf '[tunnels] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -110,17 +112,39 @@ start_forward() {
     die "port $lport is already taken by something this script does not own: $(lsof -nP -iTCP:"$lport" -sTCP:LISTEN | tail -n +2 | awk '{print $1" pid "$2}' | head -1)"
   fi
 
-  # Supervisor: restart kubectl port-forward whenever it exits, until this loop is killed.
-  nohup bash -c "
-    while true; do
-      echo \"\$(date -u +%FT%TZ) starting port-forward $ns/svc/$svc $lport:$rport\"
-      kubectl --context '$CONTEXT' port-forward -n '$ns' 'svc/$svc' '$lport:$rport' --address 127.0.0.1
-      echo \"\$(date -u +%FT%TZ) port-forward exited with \$?, restarting in ${RESTART_DELAY_SECONDS}s\"
-      sleep $RESTART_DELAY_SECONDS
-    done
-  " >"$logfile" 2>&1 &
+  # Supervisor: this same script, re-run as `_supervise` (see `supervise` below).
+  nohup "$ROOT_DIR/scripts/tunnels.sh" _supervise "$CONTEXT" "$ns" "$svc" "$lport" "$rport" >"$logfile" 2>&1 &
   echo $! >"$pidfile"
   log "$name: $ns/svc/$svc -> localhost:$lport (supervisor pid $!, log .runs/tunnels/$name.log)"
+}
+
+# Runs one port-forward until killed: starts kubectl, probes the forward over HTTP, and restarts
+# kubectl when it exits or stops answering. Any HTTP status counts as healthy (the probe only proves
+# a live pod is behind the forward). "000" means no HTTP response, which is what a forward still
+# pinned to a dead pod returns.
+supervise() {
+  local context="$1" ns="$2" svc="$3" lport="$4" rport="$5" kpid="" fails=0 code="" rc=0
+  trap 'kill "$kpid" 2>/dev/null; exit 0' TERM INT
+  while true; do
+    echo "$(date -u +%FT%TZ) starting port-forward $ns/svc/$svc $lport:$rport"
+    kubectl --context "$context" port-forward -n "$ns" "svc/$svc" "$lport:$rport" --address 127.0.0.1 &
+    kpid=$!
+    fails=0
+    while kill -0 "$kpid" 2>/dev/null; do
+      sleep "$PROBE_INTERVAL_SECONDS"
+      kill -0 "$kpid" 2>/dev/null || break
+      code="$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://127.0.0.1:$lport/" || true)"
+      if [[ "$code" == "000" ]]; then fails=$((fails + 1)); else fails=0; fi
+      if (( fails >= PROBE_FAILURES_BEFORE_RESTART )); then
+        echo "$(date -u +%FT%TZ) forward on $lport gave no HTTP response $fails times in a row, restarting kubectl"
+        kill "$kpid" 2>/dev/null || true
+      fi
+    done
+    rc=0
+    wait "$kpid" 2>/dev/null || rc=$?
+    echo "$(date -u +%FT%TZ) port-forward exited with $rc, restarting in ${RESTART_DELAY_SECONDS}s"
+    sleep "$RESTART_DELAY_SECONDS"
+  done
 }
 
 start_db_tunnel() {
@@ -210,6 +234,7 @@ cmd_down() {
 
 ACTION="${1:-}"
 [[ $# -gt 0 ]] && shift
+[[ "$ACTION" == "_supervise" ]] && { supervise "$@"; exit 0; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --context) CONTEXT="$2"; shift 2 ;;
