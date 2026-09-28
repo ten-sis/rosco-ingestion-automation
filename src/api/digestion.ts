@@ -36,7 +36,7 @@ interface DigestionTrackerResponse {
  * `isNotFoundError` below reads as "not ready yet" -- provisioning then dies on the readiness
  * budget every single time. `ApiClient` now has both `getAbsolute` and `serviceCall`; this uses
  * `serviceCall` so the intra-service headers still go out. This needs its own port-forward,
- * bound to `DIGESTION_BASE_URL` (defaults to `http://localhost:3002`, see `src/env.ts`), e.g.:
+ * bound to `DIGESTION_BASE_URL` (defaults to `http://localhost:<DIGESTION_PORT>`, 3002, see `src/env.ts`), e.g.:
  *   kubectl port-forward -n <digestion-namespace> svc/hapi-plugin-digestion-api 3002:80
  */
 export async function resolveRoscoDevice(

@@ -8,13 +8,20 @@
 #
 # Four kubectl port-forwards (all four Services expose port 80 in the cluster):
 #   be-crud      be-crud/be-crud-v5          localhost:3000  (MUST be 3000, see src/env.ts assertIntraServiceHost)
-#   webhooks     integration/webhooks-api    localhost:8081
-#   scorecards   snc/scorecard-v2-api        localhost:3001
-#   digestion    ingestion/digestion         localhost:3002
+#   webhooks     integration/webhooks-api    localhost:8081  (WEBHOOK_PORT)
+#   scorecards   snc/scorecard-v2-api        localhost:3001  (SCORECARDS_PORT)
+#   digestion    ingestion/digestion         localhost:3002  (DIGESTION_PORT)
 #
-# Each forward runs under a small supervisor loop that restarts it when kubectl exits (a pod
-# restart or an idle timeout drops a port-forward silently otherwise). PIDs and logs live in
-# .runs/tunnels/ (gitignored).
+# The three configurable ports come from the shell environment first, then .env, then the
+# defaults above. src/env.ts reads the same variables, so the suite calls the ports opened here.
+#
+# Each forward runs under a small supervisor that restarts it when kubectl exits. A
+# `kubectl port-forward svc/...` is pinned to one pod, so it breaks whenever that pod goes away.
+# On dv3 that happens often, because the private node group runs on spot instances that get
+# reclaimed. Worse, kubectl does not always exit when its pod dies: it can keep listening and fail
+# every connection for minutes. So the supervisor also sends an HTTP request through the forward
+# every PROBE_INTERVAL_SECONDS and restarts kubectl after PROBE_FAILURES_BEFORE_RESTART in a row
+# get no HTTP response at all. PIDs and logs live in .runs/tunnels/ (gitignored).
 #
 # Plus the read-only dv3 RDS tunnel on localhost:54334, a trimmed copy of
 # _tools/engineering-tools/scripts/db-tunnel.sh --environment dv3 (RDS read replica only, no
@@ -30,12 +37,35 @@ CONTEXT="${KUBE_CONTEXT:-Dv3A}"
 WITH_DB=1
 KEEP_DB=0
 
+# KEY from the shell environment, else from a KEY=value line in .env (quotes stripped), else empty.
+env_value() {
+  local key="$1" value="${!1:-}"
+  if [[ -z "$value" && -f "$ROOT_DIR/.env" ]]; then
+    value="$(grep -E "^[[:space:]]*$key=" "$ROOT_DIR/.env" | tail -n 1 | cut -d= -f2- | sed -E 's/[[:space:]]+#.*$//; s/^["'\'']//; s/["'\'']$//' || true)"
+  fi
+  printf '%s' "$value"
+}
+
+# KEY's port, or DEFAULT when unset. Dies on anything that isn't a usable port.
+port_setting() {
+  local key="$1" default="$2" value
+  value="$(env_value "$key")"
+  [[ -z "$value" ]] && { printf '%s' "$default"; return; }
+  [[ "$value" =~ ^[0-9]+$ ]] && (( value >= 1 && value <= 65535 )) || { printf '[tunnels] ERROR: %s="%s" is not a port number (1-65535).\n' "$key" "$value" >&2; exit 1; }
+  (( value != 3000 )) || { printf '[tunnels] ERROR: %s=3000 collides with the backend-crud forward, which must own local port 3000.\n' "$key" >&2; exit 1; }
+  printf '%s' "$value"
+}
+
+WEBHOOK_PORT="$(port_setting WEBHOOK_PORT 8081)"
+SCORECARDS_PORT="$(port_setting SCORECARDS_PORT 3001)"
+DIGESTION_PORT="$(port_setting DIGESTION_PORT 3002)"
+
 # name|namespace|service|localPort|servicePort
 FORWARDS=(
   "be-crud|be-crud|be-crud-v5|3000|80"
-  "webhooks|integration|webhooks-api|8081|80"
-  "scorecards|snc|scorecard-v2-api|3001|80"
-  "digestion|ingestion|digestion|3002|80"
+  "webhooks|integration|webhooks-api|$WEBHOOK_PORT|80"
+  "scorecards|snc|scorecard-v2-api|$SCORECARDS_PORT|80"
+  "digestion|ingestion|digestion|$DIGESTION_PORT|80"
 )
 
 # dv3 values copied from db-tunnel.sh's `dv3)` case. Read-only replica only.

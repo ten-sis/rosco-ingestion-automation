@@ -25,6 +25,30 @@ function optional(name: string): string | undefined {
   return value && value.length > 0 ? value : undefined;
 }
 
+/**
+ * The local port a port-forward binds, from `name` (e.g. `DIGESTION_PORT`), or `fallback` when
+ * unset. Only the webhook, scorecards and Digestion forwards are configurable: backend-crud must
+ * stay on 3000 (see `assertIntraServiceHost`). `scripts/tunnels.sh` reads the same variables, so
+ * the forward it opens and the URL the suite calls always agree.
+ */
+function localPort(name: string, fallback: number): number {
+  const value = optional(name);
+  if (value === undefined) return fallback;
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`${name}="${value}" is not a port number (1-65535).`);
+  }
+  if (port === 3000) {
+    throw new Error(`${name}=3000 collides with the backend-crud forward, which must own local port 3000.`);
+  }
+  return port;
+}
+
+/** `explicitVar` when set, otherwise `http://localhost:<port>` from `portVar`. */
+function localServiceUrl(explicitVar: string, portVar: string, fallbackPort: number): string {
+  return optional(explicitVar) ?? `http://localhost:${localPort(portVar, fallbackPort)}`;
+}
+
 function flag(name: string): boolean {
   return process.env[name] === '1' || process.env[name] === 'true';
 }
@@ -162,17 +186,17 @@ export const env: SuiteEnv = {
     return value.replace(/\/+$/, '');
   },
   get webhookBaseUrl(): string {
-    const value = process.env.WEBHOOK_BASE_URL ?? 'http://localhost:8081';
+    const value = localServiceUrl('WEBHOOK_BASE_URL', 'WEBHOOK_PORT', 8081);
     assertNotProduction('WEBHOOK_BASE_URL', value);
     return value.replace(/\/+$/, '');
   },
   get scorecardsBaseUrl(): string {
-    const value = process.env.SCORECARDS_BASE_URL ?? 'http://localhost:3001';
+    const value = localServiceUrl('SCORECARDS_BASE_URL', 'SCORECARDS_PORT', 3001);
     assertNotProduction('SCORECARDS_BASE_URL', value);
     return value.replace(/\/+$/, '');
   },
   get digestionBaseUrl(): string {
-    const value = process.env.DIGESTION_BASE_URL ?? 'http://localhost:3002';
+    const value = localServiceUrl('DIGESTION_BASE_URL', 'DIGESTION_PORT', 3002);
     assertNotProduction('DIGESTION_BASE_URL', value);
     return value.replace(/\/+$/, '');
   },
