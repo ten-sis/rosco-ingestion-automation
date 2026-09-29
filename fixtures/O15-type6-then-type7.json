@@ -1,7 +1,7 @@
 {
   "id": "O15",
   "title": "Type 6 (unDrv) followed by Type 7 (identDrv) in one trip",
-  "description": "An unidentified event (Type 6, unDrv, driver null) arrives first, then an identified event (Type 7, identDrv) for driver A arrives 60 seconds later, both while the trip is open. Must prove: the unDrv row persists with contact_id null and is never linked to a trip or considered for the claim; the identDrv row wins the claim outright and both assignees become A. Must NOT change: the unDrv event must never itself set an assignee, and must not block A's identification from winning.",
+  "description": "An unidentified event (Type 6, unDrv, driver null) arrives first, then an identified event (Type 7, identDrv) for driver A arrives 60 seconds later, both while the trip is open. Must prove: the unDrv row persists with contact_id null, is not linked while the trip is open, and is never considered for the claim; the identDrv row wins the claim outright and both assignees become A. Must NOT change: the unDrv event must never itself set an assignee, and must not block A's identification from winning.",
   "suite": "fr-live",
   "delay": {
     "mode": "none"

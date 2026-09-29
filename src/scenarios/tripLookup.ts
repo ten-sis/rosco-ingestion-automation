@@ -20,8 +20,8 @@
  *
  * `isAssigneeSource` convention used throughout this file and the rest of the suite:
  *   `true`  the row won the claim and is the trip's assignee source
- *   `false` the row lost the claim (a trip already had a source) but is still linked
- *   `null`  no claim was ever contested, because the row was never linked to a trip
+ *   `null`  every other row, linked or not. Only the winner is ever set (dv3, 2026-09-28), so a
+ *           row that lost the claim reads null, not false.
  */
 
 import type { Fixture } from '../fixture/types';

@@ -70,7 +70,9 @@ const O1: Scenario = {
     assetAssignee: { value: 'A' },
     trips: [{ tripRef: 'latest', assignee: 'A' }],
     driverEvents: [
-      { driver: null, type: 'unDrv', count: 1, tripLink: { state: 'unlinked' } },
+      // Unlinked while the trip is open (checkpoint above). Trip end links every unlinked row on
+      // the trip, Type 6 included, so its link is not asserted here.
+      { driver: null, type: 'unDrv', count: 1 },
       { driver: 'A', type: 'identDrv', count: 1, isAssigneeSource: true, tripLink: { state: 'linked', tripRef: 'latest' } },
     ],
     thresholdEvents: [{ tripRef: 'latest', allAssignedTo: 'A' }],
@@ -183,7 +185,8 @@ const O4: Scenario = {
     trips: [{ tripRef: 'latest', assignee: 'A' }],
     driverEvents: [
       { driver: 'A', count: 1, isAssigneeSource: true, tripLink: { state: 'linked', tripRef: 'latest' } },
-      { driver: 'B', count: 1, isAssigneeSource: false, tripLink: { state: 'linked', tripRef: 'latest' } },
+      // A non-winning row keeps is_assignee_source null: only the winner is ever set, to true.
+      { driver: 'B', count: 1, isAssigneeSource: null, tripLink: { state: 'linked', tripRef: 'latest' } },
     ],
   },
   rationale:
@@ -234,12 +237,14 @@ const O15: Scenario = {
     assetAssignee: { value: 'A' },
     trips: [{ tripRef: 'latest', assignee: 'A' }],
     driverEvents: [
-      { driver: null, type: 'unDrv', count: 1, isAssigneeSource: null, tripLink: { state: 'unlinked' } },
+      // Unlinked while the trip is open (checkpoint above). Trip end links every unlinked row on
+      // the trip, Type 6 included, so its link is not asserted here. It never wins the claim.
+      { driver: null, type: 'unDrv', count: 1, isAssigneeSource: null },
       { driver: 'A', type: 'identDrv', count: 1, isAssigneeSource: true, tripLink: { state: 'linked', tripRef: 'latest' } },
     ],
   },
   rationale:
-    "The doc: 'The identified event wins and becomes the assignee source. The unidentified row persists and is ignored.' An unDrv carries no driver id, and the identification consumer's own branch is explicit that any unDrv 'is persisted only, with no trip lookup and no claim attempt' — so the unDrv row is never linked to a trip at all, at insert or later. Compiled from fixtures/O15-type6-then-type7.json via fixturePlayback.ts. The checkpoint right after the unDrv event's settle is the proof it changed nothing before A ever arrives.",
+    "The doc: 'The identified event wins and becomes the assignee source. The unidentified row persists and is ignored.' An unDrv carries no driver id, and the identification consumer's own branch is explicit that any unDrv 'is persisted only, with no trip lookup and no claim attempt' — so the unDrv row is not linked while the trip is open. Trip end then links every unlinked row on the trip, Type 6 included, without ever making it the assignee source. Compiled from fixtures/O15-type6-then-type7.json via fixturePlayback.ts. The checkpoint right after the unDrv event's settle is the proof it changed nothing before A ever arrives.",
 };
 
 // ---------------------------------------------------------------------------
@@ -330,7 +335,8 @@ const O17: Scenario = {
     trips: [{ tripRef: 'latest', assignee: 'A' }],
     driverEvents: [
       { driver: 'A', count: 1, isAssigneeSource: true },
-      { driver: 'B', count: 1, isAssigneeSource: false },
+      // A non-winning row keeps is_assignee_source null: only the winner is ever set, to true.
+      { driver: 'B', count: 1, isAssigneeSource: null },
     ],
   },
   rationale:

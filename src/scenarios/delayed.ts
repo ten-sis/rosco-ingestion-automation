@@ -259,7 +259,8 @@ const O3_5: Scenario = {
     trips: [{ tripRef: 'latest', assignee: 'A' }],
     driverEvents: [
       { driver: 'A', isAssigneeSource: true, tripLink: { state: 'linked', tripRef: 'latest' } },
-      { driver: 'B', isAssigneeSource: false, tripLink: { state: 'linked', tripRef: 'latest' } },
+      // A non-winning row keeps is_assignee_source null: only the winner is ever set, to true.
+      { driver: 'B', isAssigneeSource: null, tripLink: { state: 'linked', tripRef: 'latest' } },
     ],
   },
   rationale:
