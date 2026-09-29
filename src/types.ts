@@ -159,6 +159,8 @@ export interface DriverEventFlags {
   arrived_before_trip_created?: boolean;
   arrived_after_trip_ended?: boolean;
   resulted_in_assignee_change?: boolean;
+  /** The asset write happened although a later trip had already started on the asset (TS-44193). */
+  superseded_trip_asset_write?: boolean;
 }
 
 export interface ThresholdEvent {

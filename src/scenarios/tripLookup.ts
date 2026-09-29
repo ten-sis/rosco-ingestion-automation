@@ -463,17 +463,15 @@ const O6: Scenario = {
   title: 'Late identification for a trip already superseded by a later one',
   priority: 'P0',
   tags: ['@slow'],
-  // H3, the worst case named in the review: this scenario's entire point is that the
-  // trip-recency guard SKIPS the asset write, and its `expect.assetAssignee` is 'unchanged'. Every
-  // scenario before it in this file writes A to the shared asset, so without this, 'unchanged'
-  // would trivially hold against A-from-a-previous-scenario even if the guard were broken and
-  // wrote A again — a buggy write is then indistinguishable from a correct skip. B is not
-  // otherwise involved (this case uses only A), so starting from B and staying at B is real proof
-  // the asset write never happened.
+  // Agreed behavior (TS-44193, team lead and Geoff, 2026-09-29): a late identification writes its
+  // own trip and the asset when it's the latest change, even though a later trip has started. The
+  // later trip's own identification is expected to take care of it. The write is flagged
+  // (`superseded_trip_asset_write`) so it can be monitored. Starting the asset on B, which this
+  // scenario doesn't otherwise use, is what makes the move to A observable.
   preconditions: { assetAssignee: 'B' },
   timeline: o6Timeline,
   expect: {
-    assetAssignee: { value: 'unchanged' },
+    assetAssignee: { value: 'A' },
     trips: [
       { tripRef: 'first', assignee: 'A' },
       { tripRef: 'latest', assignee: 'unchanged' },
@@ -483,15 +481,16 @@ const O6: Scenario = {
         driver: 'A',
         isAssigneeSource: true,
         tripLink: { state: 'linked', tripRef: 'first' },
-        flags: { arrived_after_trip_ended: true },
+        flags: { arrived_after_trip_ended: true, resulted_in_assignee_change: true, superseded_trip_asset_write: true },
       },
     ],
     // Trip 1's trip-end pass ran before the identification, so only the backfill cron moves these.
     thresholdEvents: [{ tripRef: 'first', allAssignedTo: 'A', viaBackfill: true }],
   },
   rationale:
-    "The doc: a late identification for a trip already superseded by a later trip overwriting the asset's current, correct assignee is exactly what the trip-recency guard exists to prevent. Compiled from fixtures/O6-part1-first-trip-with-violations.json and fixtures/O6-part2-late-identification-superseded.json, played in order against the same asset, via fixturePlayback.ts: part1's trip carries two violations (HARDBRAKE, HARDACCEL) and closes with a settle('tripEnded') before part2's trip is ever started, matching this scenario's previous hand-authored ordering; part2's trip then runs and closes normally, and only then does the late identification (claiming a timestamp inside part1's window) arrive. The trip-lookup finds trip 1 (the most recent trip with `start_date <= timestamp`), links it (closed trip covers, flagged), and the claim is won and the trip write happens normally, but the asset write is skipped because a later normal trip (trip 2) already exists. Trip 1's own trip-end pass already ran before this identification arrived, so its violations move only on the scorecard backfill cron's next pass, hence `@slow`. Part2 is compiled with `atSecOffset: lastAtSec(o6Part1Base) + TWO_PART_TRIP_GAP_SEC` so its trip continues part1's clock (200) rather than restarting at 0, and the identification's own local atSec -600 lands back on atSec 180 in part1's window (`end_date` 200 `>= timestamp` 180, the closed-trip-covers row, not O12c's `end_date < timestamp` row).",
+    "Agreed behavior for TS-44193 (hapi-server-rosco-ingestion-rmq PR #94), which replaces the design's original 'no asset write' for a superseded trip: the late identification changes its own trip and the asset, as long as it's the latest change (the asset guard's event-timestamp comparison), and the row is flagged `superseded_trip_asset_write` for monitoring. The later trip keeps its own assignee, and its own identification is expected to correct the asset. Known residual, to watch: if the later trip's identification is stamped before this write lands but delivered after it, the asset guard skips it (`.runs/O6-unidentified-later-trip-asset-write.md`). Compiled from fixtures/O6-part1-first-trip-with-violations.json and fixtures/O6-part2-late-identification-superseded.json, played in order against the same asset, via fixturePlayback.ts: part1's trip carries two violations (HARDBRAKE, HARDACCEL) and closes with a settle('tripEnded') before part2's trip starts. Part2's trip then runs and closes, and only then does the late identification (claiming a timestamp inside part1's window) arrive. The trip lookup finds trip 1, links it (closed trip covers, flagged `arrived_after_trip_ended`), the claim is won, and both writes happen. Trip 1's own trip-end pass already ran, so its violations move only on the scorecard backfill cron, hence `@slow` and `viaBackfill`. Part2 is compiled with `atSecOffset: lastAtSec(o6Part1Base) + TWO_PART_TRIP_GAP_SEC` so its trip continues part1's clock, and the identification's own local atSec -600 lands back on atSec 180 in part1's window.",
 };
+
 
 // These run in parallel, each on its own asset. O14 doesn't need trip history: with no earlier trip,
 // trip end floors its search 10 minutes before the trip's start, which covers the identification.
