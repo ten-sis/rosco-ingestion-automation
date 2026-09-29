@@ -50,6 +50,7 @@ import {
   FIXTURE_VEHICLE_PREFIX,
   fixtureAssetKey,
   fixtureContactEmail,
+  fixtureDriverFirstName,
   isFixtureTennaCam,
 } from './identity';
 import { currentRunId, recordCreated, recordReused } from './manifest';
@@ -338,18 +339,19 @@ export async function preflight(api: ApiClient): Promise<string[]> {
 // ---------------------------------------------------------------------------
 
 /**
- * Ensures the four `[FRTest]` driver contacts exist. Searches once for every contact whose first
- * or last name starts with `FIXTURE_PREFIX` (matching `searchContactsByName`'s client-side
- * startsWith filter), then matches each `DriverKey` by its exact fixture-tagged first name,
- * creating only the ones not found.
+ * Ensures `fleet`'s four driver contacts exist (`fixtureDriverFirstName`): `[FRTest]-<fleet> Driver`
+ * Alpha, Bravo, Charlie and Delta. Each fleet has its own, so a scenario that deactivates a driver
+ * only affects its own file. Searches once for every contact whose first or last name starts with
+ * `FIXTURE_PREFIX` (matching `searchContactsByName`'s client-side startsWith filter), then matches
+ * each `DriverKey` by exact first and last name, creating only the ones not found.
  */
-export async function ensureContacts(api: ApiClient): Promise<Record<DriverKey, Contact>> {
+export async function ensureContacts(api: ApiClient, fleet: string): Promise<Record<DriverKey, Contact>> {
   const existing = await searchContactsByName(api, FIXTURE_PREFIX);
   const result = {} as Record<DriverKey, Contact>;
+  const taggedFirst = fixtureDriverFirstName(fleet, env.fixtureNamespace);
   for (const key of DRIVER_KEYS) {
     const name = DRIVER_NAMES[key];
-    const taggedFirst = `${FIXTURE_PREFIX} ${name.first}`;
-    const email = fixtureContactEmail(api.accountId, key);
+    const email = fixtureContactEmail(api.accountId, fleet, key, env.fixtureNamespace);
     const found = existing.find((c) => c.first_name === taggedFirst && c.last_name === name.last);
     let contact: Contact;
     if (!found) {
@@ -596,7 +598,7 @@ export async function provisionFleetRun(
     );
   }
 
-  const contacts = await ensureContacts(api);
+  const contacts = await ensureContacts(api, fleet);
   const base = await provisionAssetWithTennaCam(api, fleet, {
     existingAssetId: suiteAssetId(fleet),
     freshAsset: opts.freshAsset,

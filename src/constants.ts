@@ -5,7 +5,11 @@
 /** Prefix on every entity this suite creates, so a human can find and clean them up. */
 export const FIXTURE_PREFIX = '[FRTest]';
 
-/** The four driver contacts the suite reuses. Created once per account, never duplicated. */
+/**
+ * The four fixture drivers' last names. Their first name is per fleet (`fixtureDriverFirstName` in
+ * `fixtures/identity.ts`), so each fleet has its own four contacts, created once per account and
+ * reused. The `first` values here are only a display fallback for `tools/play.ts`.
+ */
 export const DRIVER_NAMES = {
   A: { first: `${FIXTURE_PREFIX} Driver`, last: 'Alpha' },
   B: { first: `${FIXTURE_PREFIX} Driver`, last: 'Bravo' },

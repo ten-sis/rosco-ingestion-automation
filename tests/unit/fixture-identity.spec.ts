@@ -6,7 +6,7 @@
  * Pure functions only. No `ApiClient`, no HTTP. Not tagged `@mutating`.
  */
 import { test, expect } from '@playwright/test';
-import { fixtureAssetKey, fixtureContactEmail, isFixtureTennaCam } from '../../src/fixtures/identity';
+import { fixtureAssetKey, fixtureContactEmail, fixtureDriverFirstName, isFixtureTennaCam } from '../../src/fixtures/identity';
 
 test.describe('fixtureAssetKey', () => {
   test('is the prefix plus the label, with no run id', () => {
@@ -51,18 +51,33 @@ test.describe('isFixtureTennaCam', () => {
   });
 });
 
+test.describe('fixtureDriverFirstName', () => {
+  test('carries the fleet, so each fleet has its own drivers', () => {
+    expect(fixtureDriverFirstName('fr-guards')).toBe('[FRTest]-fr-guards Driver');
+    expect(fixtureDriverFirstName('fr-guards')).not.toBe(fixtureDriverFirstName('fr-live'));
+  });
+
+  test('carries the namespace when one is set', () => {
+    expect(fixtureDriverFirstName('fr-guards', 'mfm')).toBe('[FRTest]-mfm-fr-guards Driver');
+  });
+});
+
 test.describe('fixtureContactEmail', () => {
   const accountId = '24beb019-b03f-4452-b145-3dbd6d5e30b3';
 
-  test('is a reserved-domain address that carries the account and the driver', () => {
-    expect(fixtureContactEmail(accountId, 'A')).toBe(`frtest+${accountId}-a@example.com`);
+  test('is a reserved-domain address that carries the account, fleet and driver', () => {
+    expect(fixtureContactEmail(accountId, 'fr-guards', 'A')).toBe('frtest+24beb019-fr-guards-a@example.com');
   });
 
-  test('differs per account, since contact emails are unique across accounts', () => {
-    expect(fixtureContactEmail(accountId, 'A')).not.toBe(fixtureContactEmail('5139da63-e480-42b5-a3de-1979fa559338', 'A'));
+  test('keeps the local part under 64 characters for the longest fleet and a namespace', () => {
+    const email = fixtureContactEmail(accountId, 'fr-trip-lookup-gaps', 'D', 'somebody');
+    expect(email.split('@')[0]?.length ?? 0).toBeLessThanOrEqual(64);
   });
 
-  test('differs per driver', () => {
-    expect(fixtureContactEmail(accountId, 'A')).not.toBe(fixtureContactEmail(accountId, 'B'));
+  test('differs per account, fleet and driver, since contact emails are unique across accounts', () => {
+    const base = fixtureContactEmail(accountId, 'fr-guards', 'A');
+    expect(base).not.toBe(fixtureContactEmail('5139da63-e480-42b5-a3de-1979fa559338', 'fr-guards', 'A'));
+    expect(base).not.toBe(fixtureContactEmail(accountId, 'fr-live', 'A'));
+    expect(base).not.toBe(fixtureContactEmail(accountId, 'fr-guards', 'B'));
   });
 });

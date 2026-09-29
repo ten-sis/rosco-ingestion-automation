@@ -139,7 +139,7 @@ This is what a real run against the Dv3A cluster does today.
 
 ### Mutating run
 
-With `ALLOW_MUTATIONS=1`, preflight provisions for real on the `[FRTest]-fr-setup` asset. The first time, it creates the asset, creates a TennaCAM 2.0 tracker with a fixture Rosco `vehicle_id`, links it to the account, installs it on the asset and verifies it. Later runs reuse all of that. Either way it waits for Digestion to resolve the camera (a couple of seconds on dv3). Driver contacts are also created once and reused.
+With `ALLOW_MUTATIONS=1`, preflight provisions for real on the `[FRTest]-fr-setup` asset. The first time, it creates the asset, creates a TennaCAM 2.0 tracker with a fixture Rosco `vehicle_id`, links it to the account, installs it on the asset and verifies it. Later runs reuse all of that. Either way it waits for Digestion to resolve the camera (a couple of seconds on dv3). Each fleet has its own four driver contacts, `[FRTest]-<fleet> Driver` Alpha to Delta, also created once and reused. They're per fleet so a scenario that deactivates a driver (O8, O8b) can't affect a file running in parallel.
 
 Runs before 2026-09-28 reported most asset-assignee expectations as "the pipeline never acted". That was a harness bug, not the feature: the runner stamped every event before the scenario's preconditions, so the consumer correctly skipped every asset write as older than the standing assignment. See "Event timestamps and delivery" above.
 

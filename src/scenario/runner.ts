@@ -187,10 +187,10 @@ async function runOneExecution(scenario: Scenario, baseSc: ScenarioContext, rep:
 }
 
 /**
- * Re-enables every driver this scenario's timeline deactivates, whether it passed or failed. The
- * contacts are shared by every scenario on the worker, and `ensureContacts` only re-enables them
- * when a worker starts, so a driver left disabled would silently change the outcome of the next
- * scenario in the file (O8 used to leave A disabled ahead of O13).
+ * Re-enables every driver this scenario's timeline deactivates, whether it passed or failed. A
+ * fleet's drivers are shared by every scenario in its file, and `ensureContacts` only re-enables
+ * them when a worker starts, so a driver left disabled would silently change the outcome of the
+ * next scenario in the file (O8 used to leave A disabled ahead of O13).
  */
 async function reactivateDeactivatedContacts(scenario: Scenario, sc: ScenarioContext): Promise<void> {
   const drivers = new Set(scenario.timeline.flatMap((s) => (s.kind === 'deactivateContact' ? [s.driver] : [])));
