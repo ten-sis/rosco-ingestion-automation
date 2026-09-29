@@ -35,6 +35,9 @@ const HARSH_EVENTS: ReadonlySet<GmsEventType> = new Set(['HARDBRAKE', 'HARDACCEL
 /** Source: events.ts:29-35 — 350 for hard acceleration, 500 for hard braking/turn. */
 const HARD_ACCEL_MILLI_G = 350;
 const HARD_BRAKE_OR_TURN_MILLI_G = 500;
+/** The speed a TennaCAM 2 harsh frame reports, 40 mph (about 64 km/h). */
+const HARSH_SPEED_MPH = 40;
+const HARSH_GPS_SPEED_KPH = 64;
 
 function accelMilliGFor(event: GmsEventType): number {
   if (event === 'HARDACCEL') return HARD_ACCEL_MILLI_G;
@@ -265,7 +268,16 @@ function build845FLine(
     [IDX_845F.INTERNAL_BATTERY_VOLTAGE]: INTERNAL_BATTERY_VOLTAGE_MV,
   };
   if (isHarsh) {
-    return assembleLine(IDX_845F.ACCEL + 1, { ...fields, [IDX_845F.ACCEL]: accelMilliGFor(event) });
+    return assembleLine(IDX_845F.ACCEL + 1, {
+      ...fields,
+      // A harsh event only scores when it has a speed (hapi-server-live-events
+      // trackerGForceProcessor.isValidEvent). The decoder reads SPEED in mph and falls back to
+      // GPS_SPEED in km/h (hapi-plugin-gms-event-interrogator gmsDecoder.js). Only harsh frames
+      // carry one, so trip distance and idle time stay as they were.
+      [IDX_845F.SPEED]: HARSH_SPEED_MPH,
+      [IDX_845F.GPS_SPEED]: HARSH_GPS_SPEED_KPH,
+      [IDX_845F.ACCEL]: accelMilliGFor(event),
+    });
   }
   return assembleLine(IDX_845F.INTERNAL_BATTERY_VOLTAGE + 1, fields);
 }

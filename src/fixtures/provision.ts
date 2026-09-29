@@ -27,6 +27,8 @@ import {
   getAssetWithTracker,
   resolveAssetCategoryId,
   setAssetAssignee,
+  getAssetScorecardTemplateId,
+  setAssetScorecardTemplate,
 } from '../api/assets';
 import {
   associateTrackerWithAccount,
@@ -35,6 +37,8 @@ import {
   installTrackerOnAsset,
 } from '../api/trackers';
 import { getTrip, searchTrips } from '../api/trips';
+import { createTemplate, createThresholds, searchTemplates, searchThresholds } from '../api/scorecards';
+import type { NewThreshold } from '../api/scorecards';
 import { createContact, getContact, patchContact, searchContactsByName } from '../api/contacts';
 import { accountHasLicence, accountHasRoscoIntegration, licenceNameMatches } from '../api/licences';
 import { createTelemetryEmitter } from '../emit/telemetry';
@@ -486,6 +490,63 @@ async function closeLeftoverTrip(api: ApiClient, assetId: Uuid, gmsSerial: strin
   }
 }
 
+// ---------------------------------------------------------------------------
+// Scorecard template
+// ---------------------------------------------------------------------------
+
+/** One template per account, shared by every fleet and namespace. It only ever holds fixture assets. */
+export const FIXTURE_SCORECARD_TEMPLATE_NAME = `${FIXTURE_PREFIX} harsh events`;
+
+/**
+ * Low on purpose: every harsh frame the emitter sends clears them. The emitter's harsh frames land
+ * at about 0.51 g braking and 0.34 g acceleration (18 and 12 km/h/s on the trip event) at 64 km/h,
+ * and hapi-server-live-events `trackerGForceProcessor` scores an event when its speed is at least
+ * `minimum` and its g-force at least `value`.
+ */
+const FIXTURE_THRESHOLDS: ReadonlyArray<Omit<NewThreshold, 'templateId'>> = [
+  { name: `${FIXTURE_PREFIX} hard braking`, type: 'hard braking', priority: 'medium', scoringType: 'deduction', points: 1, maxPoints: 100, variables: { value: 0.1, minimum: 1 } },
+  { name: `${FIXTURE_PREFIX} hard acceleration`, type: 'hard acceleration', priority: 'medium', scoringType: 'deduction', points: 1, maxPoints: 100, variables: { value: 0.1, minimum: 1 } },
+  { name: `${FIXTURE_PREFIX} hard cornering`, type: 'hard cornering', priority: 'medium', scoringType: 'deduction', points: 1, maxPoints: 100, variables: { value: 0.1, minimum: 1 } },
+];
+
+const fixtureTemplateIds = new Map<Uuid, Promise<Uuid>>();
+
+/**
+ * Finds or creates the account's fixture scorecard template and any missing thresholds on it.
+ * Memoized per account for the worker, so parallel fleets in one worker don't race each other.
+ * Across workers, two could both create the template on an account's very first run. The search
+ * picks the oldest by name, so the duplicate is harmless and later runs settle on one.
+ */
+export function ensureFixtureScorecardTemplate(api: ApiClient): Promise<Uuid> {
+  let pending = fixtureTemplateIds.get(api.accountId);
+  if (!pending) {
+    pending = findOrCreateFixtureScorecardTemplate(api);
+    pending.catch(() => fixtureTemplateIds.delete(api.accountId));
+    fixtureTemplateIds.set(api.accountId, pending);
+  }
+  return pending;
+}
+
+async function findOrCreateFixtureScorecardTemplate(api: ApiClient): Promise<Uuid> {
+  const existing = (await searchTemplates(api)).find((t) => t.name === FIXTURE_SCORECARD_TEMPLATE_NAME && t.isActive);
+  const template =
+    existing ??
+    (await createTemplate(api, FIXTURE_SCORECARD_TEMPLATE_NAME, 'Created by rosco-ingestion-automation for its fixture assets. Safe to ignore.'));
+  if (!existing) recordCreated('scorecard-template', template.id, FIXTURE_SCORECARD_TEMPLATE_NAME);
+
+  const haveTypes = new Set((await searchThresholds(api, template.id)).map((t) => t.type));
+  const missing = FIXTURE_THRESHOLDS.filter((t) => !haveTypes.has(t.type)).map((t) => ({ ...t, templateId: template.id }));
+  await createThresholds(api, missing);
+  return template.id;
+}
+
+/** Puts the asset on the fixture scorecard template, so its harsh events become violations. */
+async function ensureAssetOnFixtureScorecard(api: ApiClient, assetId: Uuid): Promise<void> {
+  const templateId = await ensureFixtureScorecardTemplate(api);
+  if ((await getAssetScorecardTemplateId(api, assetId)) === templateId) return;
+  await setAssetScorecardTemplate(api, assetId, templateId);
+}
+
 /**
  * A fully installed and verified TennaCAM 2.0 on the asset for `label`, with Digestion resolving
  * it and the asset reset to a clean baseline.
@@ -561,6 +622,7 @@ export async function provisionAssetWithTennaCam(
     await closeLeftoverTrip(api, assetId, gmsSerial);
   }
   await setAssetAssignee(api, assetId, null);
+  await ensureAssetOnFixtureScorecard(api, assetId);
 
   return {
     runId: currentRunId(),

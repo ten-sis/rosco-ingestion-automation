@@ -130,3 +130,20 @@ export async function getAssetAssignee(api: ApiClient, id: Uuid): Promise<Uuid |
 export async function softDeleteAsset(api: ApiClient, id: Uuid): Promise<void> {
   await api.delete<void>(`/v5/assets/${id}`);
 }
+
+/** The scorecard template the asset is on, or null. */
+export async function getAssetScorecardTemplateId(api: ApiClient, id: Uuid): Promise<Uuid | null> {
+  const asset = await api.get<{ scorecard_template_id?: Uuid | null }>(`/v5/assets/${id}`, {
+    query: { fields: 'id,scorecard_template_id' },
+  });
+  return asset.scorecard_template_id ?? null;
+}
+
+/**
+ * Puts the asset on a scorecard template. The same bulk `PATCH /v5/assets` hapi-server-scorecards
+ * uses for this (`services/backendCrudApiClient.ts`, `updateAssets`). The asset update fans out to
+ * live-events' `sync-scorecard` asset consumer, which is what makes its trips score.
+ */
+export async function setAssetScorecardTemplate(api: ApiClient, id: Uuid, templateId: Uuid): Promise<void> {
+  await api.patch<unknown>('/v5/assets', [{ id, scorecard_template_id: templateId }]);
+}
