@@ -129,6 +129,13 @@ export { expect };
 const SLOW_TEST_HEADROOM_MS = 60_000;
 
 /**
+ * Per execution, on top of the timeline's own planned pauses: preconditions, checkpoint holds
+ * (up to LIVE_BUDGET_MS each), and the settle waits. A generous flat allowance, because the test
+ * timeout only exists to stop a hung run, not to measure one.
+ */
+const EXECUTION_OVERHEAD_MS = 5 * 60_000;
+
+/**
  * Generates one Playwright test per scenario, titled `<id> @mutating <tags> <title>`. `fleet` is
  * the fleet name this spec file owns (AGENT-BRIEF revision 2 item 1) — it both selects the
  * `ASSET_ID_<FLEET>`/`ACCOUNT_ID_<FLEET>` env overrides (`src/env.ts`) and, for a fixture-driven
@@ -158,11 +165,13 @@ export function defineScenarioTests(
     ];
     // The wait `anchorTimeline` adds before a delayed trip's first step, per execution.
     const startWaitMs = anchorTimeline(scenario.timeline, 0).startAtMs - ANCHOR_MARGIN_MS;
+    // Steps are sent in real time, so an execution lasts at least its planned pauses. A repeated
+    // scenario (O9 runs five times) needs that budget for every execution.
+    const plannedMs = scenario.timeline.reduce((sum, s) => sum + Math.max(0, s.sendAfterMs ?? 0), 0);
+    const executionBudgetMs = (scenario.repeat ?? 1) * (startWaitMs + plannedMs + EXECUTION_OVERHEAD_MS);
     test(title, { annotation }, async ({ fr }, testInfo) => {
       testInfo.annotations.push({ type: 'asset', description: `${fr.run.assetId} (tracker ${fr.run.trackerId})` });
-      if (startWaitMs > 0) {
-        test.setTimeout(testInfo.timeout + startWaitMs * (scenario.repeat ?? 1));
-      }
+      test.setTimeout(Math.max(testInfo.timeout, executionBudgetMs));
       if (scenario.tags?.includes('@slow')) {
         // Reviewer finding 4: this must only ever WIDEN the timeout. `testInfo.timeout` is the
         // timeout already in effect (the project/config default, e.g. `playwright.config.ts`'s

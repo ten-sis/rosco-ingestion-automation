@@ -612,7 +612,19 @@ async function deliverSettleStep(sc: ScenarioContext, step: SettleStep): Promise
       await waitForTrip(sc, { assetId: sc.run.assetId, budgetMs });
       return;
     case 'tripEnded': {
-      const trip = await resolveTripRef(sc, 'latest');
+      // The trip may not exist yet. Telemetry is sent in real time, and the trip row appears only
+      // once ingestion has processed the ignition-on frame (O12b failed here on dv3, 2026-09-28).
+      let trip: Awaited<ReturnType<typeof resolveTripRef>> | undefined;
+      await expect
+        .poll(
+          async () => {
+            trip = await resolveTripRef(sc, 'latest').catch(() => undefined);
+            return trip !== undefined;
+          },
+          { timeout: TRIP_APPEARS_BUDGET_MS, intervals: [POLL_INTERVAL_MS], message: 'the trip never appeared' },
+        )
+        .toBe(true);
+      if (!trip) throw new Error('settle(tripEnded): the trip never appeared');
       await waitForTripEnded(sc, { tripId: trip.id, budgetMs });
       return;
     }
