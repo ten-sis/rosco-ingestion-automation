@@ -486,7 +486,8 @@ const O6: Scenario = {
         flags: { arrived_after_trip_ended: true },
       },
     ],
-    thresholdEvents: [{ tripRef: 'first', allAssignedTo: 'A' }],
+    // Trip 1's trip-end pass ran before the identification, so only the backfill cron moves these.
+    thresholdEvents: [{ tripRef: 'first', allAssignedTo: 'A', viaBackfill: true }],
   },
   rationale:
     "The doc: a late identification for a trip already superseded by a later trip overwriting the asset's current, correct assignee is exactly what the trip-recency guard exists to prevent. Compiled from fixtures/O6-part1-first-trip-with-violations.json and fixtures/O6-part2-late-identification-superseded.json, played in order against the same asset, via fixturePlayback.ts: part1's trip carries two violations (HARDBRAKE, HARDACCEL) and closes with a settle('tripEnded') before part2's trip is ever started, matching this scenario's previous hand-authored ordering; part2's trip then runs and closes normally, and only then does the late identification (claiming a timestamp inside part1's window) arrive. The trip-lookup finds trip 1 (the most recent trip with `start_date <= timestamp`), links it (closed trip covers, flagged), and the claim is won and the trip write happens normally, but the asset write is skipped because a later normal trip (trip 2) already exists. Trip 1's own trip-end pass already ran before this identification arrived, so its violations move only on the scorecard backfill cron's next pass, hence `@slow`. Part2 is compiled with `atSecOffset: lastAtSec(o6Part1Base) + TWO_PART_TRIP_GAP_SEC` so its trip continues part1's clock (200) rather than restarting at 0, and the identification's own local atSec -600 lands back on atSec 180 in part1's window (`end_date` 200 `>= timestamp` 180, the closed-trip-covers row, not O12c's `end_date < timestamp` row).",

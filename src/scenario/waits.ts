@@ -30,7 +30,7 @@ import {
   windowStart,
   type ScenarioContext,
 } from './context';
-import { LIVE_BUDGET_MS, POLL_INTERVAL_MS, TRIP_APPEARS_BUDGET_MS, TRIP_END_BUDGET_MS } from './timeouts';
+import { BACKFILL_BUDGET_MS, LIVE_BUDGET_MS, POLL_INTERVAL_MS, TRIP_APPEARS_BUDGET_MS, TRIP_END_BUDGET_MS } from './timeouts';
 import type { AssigneeExpectation, DriverEventExpectation, Expectation, ServiceLogExpectation, ThresholdEventExpectation, TripExpectation } from './types';
 import { podsStartedAfter, readDeploymentLogs } from '../read/serviceLogs';
 
@@ -565,6 +565,7 @@ function describeAssignment(events: readonly ThresholdEvent[], contactId: Uuid):
 export async function assertThresholdEvent(exp: ThresholdEventExpectation, sc: ScenarioContext): Promise<void> {
   const trip = await resolveTripRef(sc, exp.tripRef ?? 'latest');
   let events: ThresholdEvent[] = [];
+  const reassignBudgetMs = exp.viaBackfill ? BACKFILL_BUDGET_MS : TRIP_END_BUDGET_MS;
 
   if (exp.allAssignedTo !== undefined) {
     const contactId = sc.run.contacts[exp.allAssignedTo].id;
@@ -574,7 +575,7 @@ export async function assertThresholdEvent(exp: ThresholdEventExpectation, sc: S
           events = await searchThresholdEvents(sc.api, trip.id);
           return describeAssignment(events, contactId);
         },
-        { timeout: TRIP_END_BUDGET_MS, intervals: [POLL_INTERVAL_MS], message: `violations on trip ${trip.id}` },
+        { timeout: reassignBudgetMs, intervals: [POLL_INTERVAL_MS], message: `violations on trip ${trip.id}` },
       )
       .toBe('all assigned');
   }
@@ -588,7 +589,7 @@ export async function assertThresholdEvent(exp: ThresholdEventExpectation, sc: S
           events = await searchThresholdEvents(sc.api, trip.id);
           return describeAssignment(selectByWhich(events, which), contactId);
         },
-        { timeout: TRIP_END_BUDGET_MS, intervals: [POLL_INTERVAL_MS], message: `violations (${which}) on trip ${trip.id}` },
+        { timeout: reassignBudgetMs, intervals: [POLL_INTERVAL_MS], message: `violations (${which}) on trip ${trip.id}` },
       )
       .toBe('all assigned');
   }

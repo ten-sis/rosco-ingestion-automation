@@ -182,6 +182,12 @@ export interface ThresholdEventExpectation {
   stillAssignedTo?: { driver: DriverKey; which: 'all' | 'first' | 'last' };
   /** Assert nothing was transferred at all. */
   noTransfers?: boolean;
+  /**
+   * The violations only move on the scorecard backfill cron (every 5 minutes), because the
+   * identification lands after its trip's trip-end pass. Polls for BACKFILL_BUDGET_MS instead of
+   * TRIP_END_BUDGET_MS, so the check always spans at least one cron run.
+   */
+  viaBackfill?: boolean;
 }
 
 export interface TripExpectation {

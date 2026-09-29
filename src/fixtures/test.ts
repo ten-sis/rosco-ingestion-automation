@@ -226,7 +226,10 @@ function registerScenario(scenario: Scenario, fleet: string): void {
   // Steps are sent in real time, so an execution lasts at least its planned pauses. A repeated
   // scenario (O9 runs five times) needs that budget for every execution.
   const plannedMs = scenario.timeline.reduce((sum, s) => sum + Math.max(0, s.sendAfterMs ?? 0), 0);
-  const executionBudgetMs = (scenario.repeat ?? 1) * (startWaitMs + plannedMs + EXECUTION_OVERHEAD_MS);
+  // A violation check that waits on the backfill cron polls for BACKFILL_BUDGET_MS on its own.
+  const expectations = [scenario.expect, ...(scenario.expectAfterStep ?? []).map((c) => c.expect)];
+  const backfillWaitMs = expectations.some((e) => e.thresholdEvents?.some((t) => t.viaBackfill)) ? BACKFILL_BUDGET_MS : 0;
+  const executionBudgetMs = (scenario.repeat ?? 1) * (startWaitMs + plannedMs + backfillWaitMs + EXECUTION_OVERHEAD_MS);
   if (scenario.fixme) {
     test.fixme(title, { annotation: [...annotation, { type: 'fixme', description: scenario.fixme }] }, () => {});
     return;

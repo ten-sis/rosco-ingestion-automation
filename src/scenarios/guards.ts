@@ -122,7 +122,8 @@ const O7_2: Scenario = {
   expect: {
     assetAssignee: { value: 'A' },
     trips: [{ tripRef: 'latest', assignee: 'A' }],
-    thresholdEvents: [{ tripRef: 'latest', allAssignedTo: 'A' }],
+    // The identification is delivered after trip end, so only the backfill cron moves these.
+    thresholdEvents: [{ tripRef: 'latest', allAssignedTo: 'A', viaBackfill: true }],
   },
   rationale:
     "The plan's O7.2: 'Asset assignee becomes A. Trip assignee becomes A. Violations by the backfill cron.' Same // VERIFY note as O7.1: the differentiator here is receipt order relative to the manual patch, not the event's own device timestamp. Compiled from fixtures/O7.2-identification-after-manual-change.json (same two-violation trip shape as O7.1) via fixturePlayback.ts: the identification claims atSec 180 but is not delivered until atSec 400, well after the trip closes (200); the manual `patchAssetAssignee(C)` step is spliced in right before the trip's own `IGN_OFF`, since the fixture format has no field for it, so it lands well before the delayed identification arrives. The checkpoint right after the trip-end settle (asset C, trip still unset) is the required negative control proving the manual correction alone did not touch the trip.",
