@@ -100,7 +100,11 @@ export async function searchThresholdEvents(
         '(assigneeId/transferredById/eventTimestamp) is only valid for V2.',
     );
   }
-  return (response.results ?? []).map((raw) => normalizeThresholdEvent(raw, tripId));
+  // Oldest first. Scorecards' order isn't stable between calls, and `selectByWhich`'s 'first' and
+  // 'last' (the transfer step and the check after it) must pick the same violation (O13).
+  return (response.results ?? [])
+    .map((raw) => normalizeThresholdEvent(raw, tripId))
+    .sort((a, b) => a.received_at.localeCompare(b.received_at));
 }
 
 /**
