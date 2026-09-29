@@ -110,6 +110,8 @@ interface ExecutionState {
    * window instead of silently dropping them (defect 3).
    */
   timelineMinAtSec: number;
+  /** The timeline's largest `atSec`, for `windowEnd`. */
+  timelineMaxAtSec: number;
   /**
    * Whether an `ident` step (fresh or `redeliverOf`) has been dispatched yet in this execution.
    * Negative assertions use this to choose their strategy (defect 1): before the first ident is
@@ -151,6 +153,7 @@ export function beginExecution(sc: ScenarioContext, timeline: readonly Step[]): 
     preExistingTripIds: new Map(),
     preExistingDriverEventRowIds: new Map(),
     timelineMinAtSec: Math.min(0, ...timeline.map((s) => s.atSec)),
+    timelineMaxAtSec: Math.max(0, ...timeline.map((s) => s.atSec)),
     identDispatched: false,
     identPayloads: new Map(),
     unchangedAssetAssignee: new Map(),
@@ -205,7 +208,7 @@ export async function capturePreExistingDriverEventRows(sc: ScenarioContext, ass
     stateFor(sc).preExistingDriverEventRowIds.set(assetId, new Set());
     return;
   }
-  const rows = await sc.reader.byAsset({ assetId, fromIso: windowStart(sc), toIso: new Date().toISOString() });
+  const rows = await sc.reader.byAsset({ assetId, fromIso: windowStart(sc), toIso: windowEnd(sc) });
   stateFor(sc).preExistingDriverEventRowIds.set(assetId, new Set(rows.map((r) => r.id)));
 }
 
@@ -242,6 +245,17 @@ export function getIdentPayload(sc: ScenarioContext, label: string): RoscoDriver
 
 export function recordUnchangedAssetAssignee(sc: ScenarioContext, assetId: Uuid, value: Uuid | null): void {
   stateFor(sc).unchangedAssetAssignee.set(assetId, value);
+}
+
+/**
+ * The upper bound of the time window an assertion should query within: now, or the timeline's
+ * latest logical time if that is later. It is later only for a step stamped ahead of when it is
+ * sent (`timestampAheadOfDelivery`, O17's day-two identification), whose row would otherwise fall
+ * outside a window that ends now.
+ */
+export function windowEnd(sc: ScenarioContext): string {
+  const latest = sc.t0.getTime() + stateFor(sc).timelineMaxAtSec * 1_000;
+  return new Date(Math.max(Date.now(), latest)).toISOString();
 }
 
 export function getUnchangedAssetAssignee(sc: ScenarioContext, assetId: Uuid): Uuid | null | undefined {

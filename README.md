@@ -70,7 +70,7 @@ Each spec file hardcodes a fleet name, and that fleet's asset is provisioned onc
 
 ### Assets are reused across runs
 
-Each fleet has one asset per account, and every run reuses it. Provisioning looks the asset up by its fleet number, `[FRTest]-<fleet>` (for example `[FRTest]-fr-live`), and reuses the fixture TennaCAM already installed on it. It creates the asset or the tracker only when it's missing. A second asset for a fleet is `[FRTest]-<fleet>-secondary`. So a new run, a worker restarted after a failed test, or a run the next day all land on the same asset. At setup, provisioning clears the asset's assignee and closes a trip an earlier run left open.
+Each scenario has its own asset per account, and every run reuses it. Provisioning looks the asset up by its fleet number, `[FRTest]-<fleet>-<case>` (for example `[FRTest]-fr-trip-lookup-O12c`), and reuses the fixture TennaCAM already installed on it. It creates the asset or the tracker only when it's missing. A scenario's second asset is `[FRTest]-<fleet>-<case>-secondary`. Scenarios used to share their file's asset, and one scenario's leftovers (an open trip, an unlinked identification, a backdated trip) changed the next one's outcome. A new run, a worker restarted after a failed test, or a run the next day all land on the same assets. At setup, provisioning clears the asset's assignee and closes a trip an earlier run left open.
 
 Two exceptions:
 

@@ -53,6 +53,7 @@ import {
   resolveAsset,
   resolveTripRef,
   serializeTripRef,
+  windowEnd,
   windowStart,
   type ScenarioContext,
 } from './context';
@@ -600,7 +601,7 @@ async function deliverSettleStep(sc: ScenarioContext, step: SettleStep): Promise
       await waitForDriverEventRows(sc, {
         assetId: sc.run.assetId,
         fromIso: windowStart(sc),
-        toIso: new Date().toISOString(),
+        toIso: windowEnd(sc),
         minCount: 1,
         budgetMs,
       });

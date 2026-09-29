@@ -26,6 +26,7 @@ import {
   resolveAsset,
   resolveTripRef,
   serializeTripRef,
+  windowEnd,
   windowStart,
   type ScenarioContext,
 } from './context';
@@ -230,7 +231,7 @@ async function waitForProofOfLiveness(sc: ScenarioContext, o: { assetId: string;
     await expect
       .poll(
         async () => {
-          const rows = await sc.reader.byAsset({ assetId: o.assetId, fromIso: o.fromIso, toIso: new Date().toISOString() });
+          const rows = await sc.reader.byAsset({ assetId: o.assetId, fromIso: o.fromIso, toIso: windowEnd(sc) });
           return filterExecutionRows(sc, o.assetId, rows).length > 0;
         },
         { timeout: o.budgetMs, intervals: [POLL_INTERVAL_MS] },
@@ -466,7 +467,7 @@ export async function assertDriverEvents(expectations: readonly DriverEventExpec
   await ensureReaderAvailable(sc);
   const fromIso = windowStart(sc);
   const readRows = async (): Promise<DriverEventRow[]> =>
-    filterExecutionRows(sc, sc.run.assetId, await sc.reader.byAsset({ assetId: sc.run.assetId, fromIso, toIso: new Date().toISOString() }));
+    filterExecutionRows(sc, sc.run.assetId, await sc.reader.byAsset({ assetId: sc.run.assetId, fromIso, toIso: windowEnd(sc) }));
 
   const positive = expectations.filter((e) => (e.count ?? 1) > 0);
   const zero = expectations.filter((e) => (e.count ?? 1) === 0);
@@ -508,7 +509,7 @@ export async function assertDriverEventRowCount(count: number, sc: ScenarioConte
   await ensureReaderAvailable(sc);
   const fromIso = windowStart(sc);
   const readCount = async (): Promise<number> =>
-    filterExecutionRows(sc, sc.run.assetId, await sc.reader.byAsset({ assetId: sc.run.assetId, fromIso, toIso: new Date().toISOString() })).length;
+    filterExecutionRows(sc, sc.run.assetId, await sc.reader.byAsset({ assetId: sc.run.assetId, fromIso, toIso: windowEnd(sc) })).length;
 
   if (count === 0) {
     await assertNegative(sc, { assetId: sc.run.assetId, expected: 0, readValue: readCount, budgetMs: LIVE_BUDGET_MS });

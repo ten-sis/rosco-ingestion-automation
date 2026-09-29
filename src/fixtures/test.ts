@@ -18,7 +18,7 @@ import { test as base, expect, request as playwrightRequest } from '@playwright/
 import type { APIRequestContext } from '@playwright/test';
 import { ApiClient } from '../api/client';
 import type { RunContext } from '../types';
-import { suiteAccountId } from '../env';
+import { suiteAccountId, suiteAssetId } from '../env';
 import { createDriverEventEmitter } from '../emit/index';
 import { createTelemetryEmitter } from '../emit/telemetry';
 import { createDriverEventsReader } from '../read/driverEvents';
@@ -39,6 +39,19 @@ import { writeManifest } from './manifest';
  */
 const DEFAULT_FLEET = 'fr-setup';
 
+/**
+ * `fr` plus the per-scenario asset lookup. Each scenario runs on its own asset,
+ * `[FRTest]-<fleet>-<case id>` (and `...-secondary` when it needs a second one), reused across
+ * runs. Scenarios in a file used to share the fleet's asset, and one scenario's leftovers changed
+ * the next one's outcome: an open trip (O12a) stopped the next trip being created (O12b), an
+ * unlinked row (O12f, O5) was claimed by the next scenario's trip (O14), and a backdated trip
+ * (O12c) overlapped the previous scenario's (O6). dv3 full run, 2026-09-29.
+ */
+export interface FleetContext extends ScenarioContext {
+  /** Provisions (or reuses) the asset and TennaCAM for `label`, once per worker. */
+  assetFor(label: string): Promise<RunContext>;
+}
+
 interface WorkerFixtures {
   /** Test option (see module doc comment). Set once per file via `defineScenarioTests`. */
   fleet: string;
@@ -47,7 +60,7 @@ interface WorkerFixtures {
    * (see `provisionAssetWithTennaCam`). Set via `defineScenarioTests(..., { freshAsset: true })`.
    */
   freshAsset: boolean;
-  fr: ScenarioContext;
+  fr: FleetContext;
   /**
    * `fr.run`, exposed as its own worker-scoped fixture so a plain provisioning-smoke-test (see
    * `tests/setup/provision.spec.ts`) can assert the fixture data without pulling in the emitter,
@@ -89,7 +102,17 @@ export const test = base.extend<{}, WorkerFixtures>({
       // (`suiteAssetId`) only names the fleet's PRIMARY asset. Like the primary, it is reused
       // across runs under its own fleet key, `<fleet>-secondary`.
       let secondaryPromise: Promise<RunContext> | undefined;
-      const sc: ScenarioContext = {
+      const assets = new Map<string, Promise<RunContext>>();
+      const assetFor = (label: string): Promise<RunContext> => {
+        let asset = assets.get(label);
+        if (!asset) {
+          asset = provisionAssetWithTennaCam(api, label, { freshAsset }).then((b) => ({ ...b, contacts: run.contacts }));
+          assets.set(label, asset);
+        }
+        return asset;
+      };
+      const sc: FleetContext = {
+        assetFor,
         api,
         run,
         fleet,
@@ -170,7 +193,12 @@ export function defineScenarioTests(
     const plannedMs = scenario.timeline.reduce((sum, s) => sum + Math.max(0, s.sendAfterMs ?? 0), 0);
     const executionBudgetMs = (scenario.repeat ?? 1) * (startWaitMs + plannedMs + EXECUTION_OVERHEAD_MS);
     test(title, { annotation }, async ({ fr }, testInfo) => {
-      testInfo.annotations.push({ type: 'asset', description: `${fr.run.assetId} (tracker ${fr.run.trackerId})` });
+      // A pinned asset (ASSET_ID / ASSET_ID_<FLEET>) is used as-is by every scenario in the file.
+      // Otherwise each scenario gets its own asset (see `FleetContext`).
+      const label = `${fleet}-${scenario.id}`;
+      const run = suiteAssetId(fleet) !== undefined ? fr.run : await fr.assetFor(label);
+      const sc: ScenarioContext = { ...fr, run, secondaryAsset: () => fr.assetFor(`${label}-secondary`) };
+      testInfo.annotations.push({ type: 'asset', description: `${run.assetId} (tracker ${run.trackerId})` });
       test.setTimeout(Math.max(testInfo.timeout, executionBudgetMs));
       if (scenario.tags?.includes('@slow')) {
         // Reviewer finding 4: this must only ever WIDEN the timeout. `testInfo.timeout` is the
@@ -180,7 +208,7 @@ export function defineScenarioTests(
         // waits out the backfill cron below what every other, faster scenario already gets.
         test.setTimeout(Math.max(testInfo.timeout, BACKFILL_BUDGET_MS + SLOW_TEST_HEADROOM_MS + startWaitMs));
       }
-      await runScenario(scenario, fr);
+      await runScenario(scenario, sc);
     });
   }
 }
