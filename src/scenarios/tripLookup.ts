@@ -309,7 +309,8 @@ const O12f: Scenario = {
   priority: 'P0',
   tags: [],
   // H3: B is not otherwise involved, so ending at A is a genuine write, not residue.
-  preconditions: { assetAssignee: 'B' },
+  // tripHistory: arrived_before_trip_created needs an earlier trip that ended before the identification.
+  preconditions: { assetAssignee: 'B', tripHistory: true },
   timeline: o12fTimeline,
   expectAfterStep: [
     {

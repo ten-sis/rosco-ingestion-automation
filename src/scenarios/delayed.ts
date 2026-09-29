@@ -50,7 +50,8 @@ const O3_1: Scenario = {
   // otherwise involved (this case uses only A), and this case's own `resulted_in_assignee_change:
   // true` assertion needs a real prior value to change FROM, so a non-null, non-A precondition
   // makes the proof explicit rather than borrowed from a fresh asset's default.
-  preconditions: { assetAssignee: 'D' },
+  // tripHistory: the checkpoint asserts arrived_before_trip_created, which needs an earlier trip.
+  preconditions: { assetAssignee: 'D', tripHistory: true },
   timeline: o31Timeline,
   expectAfterStep: [
     {

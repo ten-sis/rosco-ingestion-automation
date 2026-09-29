@@ -29,7 +29,7 @@
  */
 
 import { getAssetAssignee, setAssetAssignee } from '../api/assets';
-import { setTripAssignee } from '../api/trips';
+import { searchTrips, setTripAssignee } from '../api/trips';
 import { searchThresholdEvents, transferThresholdEvents } from '../api/thresholdEvents';
 import { setContactEnabled } from '../api/contacts';
 import { setAccountLicenceEnabled } from '../fixtures/provision';
@@ -342,9 +342,55 @@ async function runTimelineExecution(scenario: Scenario, baseSc: ScenarioContext,
   });
 }
 
+/** How far back the seed trip's frames are stamped: well clear of any scenario's backdated trip. */
+const SEED_TRIP_START_AGO_MS = 20 * 60_000;
+/** Gap between seed frames, under the tracker's 58-second ping interval. */
+const SEED_FRAME_GAP_MS = 50_000;
+
+/**
+ * Gives an asset that has never had a trip one finished normal trip (see `Precondition.tripHistory`).
+ * Frames are stamped 20 minutes back, a few hundred metres apart, and sent now, the same way a
+ * delayed trip arrives. Then waits for the trip to be created and closed, and re-captures the
+ * pre-existing trips so the seed trip never counts as one of this execution's own.
+ */
+async function seedTripHistory(sc: ScenarioContext): Promise<void> {
+  const [latest] = await searchTrips(sc.api, { assetId: sc.run.assetId, type: 'normal', limit: 1 });
+  if (latest) return;
+
+  const startMs = Date.now() - SEED_TRIP_START_AGO_MS;
+  const frames: Array<{ event: GmsEventType; offsetMs: number; step: number }> = [
+    { event: 'IGN_ON', offsetMs: 0, step: 0 },
+    { event: 'ON_PERIODIC', offsetMs: SEED_FRAME_GAP_MS, step: 1 },
+    { event: 'ON_PERIODIC', offsetMs: 2 * SEED_FRAME_GAP_MS, step: 2 },
+    { event: 'IGN_OFF', offsetMs: 3 * SEED_FRAME_GAP_MS, step: 3 },
+  ];
+  for (const frame of frames) {
+    await sc.telemetry.send({
+      gmsSerial: sc.run.gmsSerial,
+      event: frame.event,
+      atIso: new Date(startMs + frame.offsetMs).toISOString(),
+      lat: DEFAULT_LAT + frame.step * 0.002,
+      lon: DEFAULT_LON + frame.step * 0.002,
+    });
+  }
+  await expect
+    .poll(
+      async () => {
+        const [trip] = await searchTrips(sc.api, { assetId: sc.run.assetId, type: 'normal', limit: 1 });
+        return trip !== undefined && trip.end_date !== null;
+      },
+      { timeout: TRIP_APPEARS_BUDGET_MS + TRIP_END_BUDGET_MS, intervals: [POLL_INTERVAL_MS], message: 'the seed trip never closed' },
+    )
+    .toBe(true);
+  await capturePreExistingTrips(sc, sc.run.assetId);
+}
+
 async function applyPreconditions(scenario: Scenario, sc: ScenarioContext): Promise<void> {
   const pre = scenario.preconditions;
   if (!pre) return;
+  if (pre.tripHistory) {
+    await seedTripHistory(sc);
+  }
   if (pre.assetAssignee !== undefined) {
     await setAssetAssignee(sc.api, sc.run.assetId, contactIdFor(sc, pre.assetAssignee));
   }

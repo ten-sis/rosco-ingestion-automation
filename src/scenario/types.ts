@@ -210,6 +210,14 @@ export interface Precondition {
   licences?: { facialRecognition?: boolean; trackIt?: boolean };
   /** Provision a second asset up front rather than lazily. */
   secondaryAsset?: boolean;
+  /**
+   * The asset must already have a finished normal trip before the timeline runs. The consumer's
+   * insert-time lookup only sets `arrived_before_trip_created` when an earlier trip ended before
+   * the identification, so a scenario that asserts that flag needs one. On an asset that has
+   * never had a trip (the first run of a new asset or `FIXTURE_NAMESPACE`), the runner drives a
+   * short seed trip first, stamped well in the past (`seedTripHistory` in `runner.ts`).
+   */
+  tripHistory?: boolean;
 }
 
 export interface Scenario {

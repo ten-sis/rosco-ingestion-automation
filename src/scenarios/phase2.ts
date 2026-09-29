@@ -92,7 +92,8 @@ const O22: Scenario = {
   priority: 'P0',
   tags: ['@phase2'],
   // H3: C is not otherwise involved, so ending at A is a genuine write, not residue from O21.
-  preconditions: { assetAssignee: 'C' },
+  // tripHistory: fr-phase2 always starts on a fresh asset, and the flag needs an earlier trip.
+  preconditions: { assetAssignee: 'C', tripHistory: true },
   timeline: o22Timeline,
   expectAfterStep: [
     {
