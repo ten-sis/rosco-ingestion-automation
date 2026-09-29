@@ -349,36 +349,51 @@ export async function preflight(api: ApiClient): Promise<string[]> {
  * `FIXTURE_PREFIX` (matching `searchContactsByName`'s client-side startsWith filter), then matches
  * each `DriverKey` by exact first and last name, creating only the ones not found.
  */
-export async function ensureContacts(api: ApiClient, fleet: string): Promise<Record<DriverKey, Contact>> {
+export async function ensureContacts(
+  api: ApiClient,
+  fleet: string,
+  opts: { leaveEnabledAsIs?: readonly DriverKey[] } = {},
+): Promise<Record<DriverKey, Contact>> {
   const existing = await searchContactsByName(api, FIXTURE_PREFIX);
   const result = {} as Record<DriverKey, Contact>;
   const taggedFirst = fixtureDriverFirstName(fleet, env.fixtureNamespace);
   for (const key of DRIVER_KEYS) {
     const name = DRIVER_NAMES[key];
     const email = fixtureContactEmail(api.accountId, fleet, key, env.fixtureNamespace);
-    const found = existing.find((c) => c.first_name === taggedFirst && c.last_name === name.last);
-    let contact: Contact;
+    const matches = (c: Contact): boolean => c.first_name === taggedFirst && c.last_name === name.last;
+    let found = existing.find(matches);
     if (!found) {
-      const id = await createContact(api, taggedFirst, name.last, email);
-      contact = { ...(await getContact(api, id)), email };
-      recordCreated('contact', contact.id, key);
-    } else {
-      // A disabled contact left over from a stale prior run would silently corrupt every scenario
-      // that assumes a clean baseline; scenarios that need a disabled contact do so explicitly via
-      // a `deactivateContact` step, so provisioning always resets to enabled. A contact created
-      // before fixture drivers had an email gets one here, in the same PATCH: backend-crud refuses
-      // any update to a contact with neither an email nor a mobile phone.
-      const changes = {
-        ...(found.enabled ? {} : { enabled: true }),
-        ...(found.email ? {} : { email }),
-      };
-      if (Object.keys(changes).length > 0) {
-        await patchContact(api, found.id, changes);
+      try {
+        const id = await createContact(api, taggedFirst, name.last, email);
+        const created = { ...(await getContact(api, id)), email };
+        recordCreated('contact', created.id, key);
+        result[key] = created;
+        continue;
+      } catch (err) {
+        // Workers of one fleet start together in a parallel file, so on a brand-new account or
+        // namespace two can both miss the driver and both create it. Contact email is globally
+        // unique, so the second create fails. Reuse the one the other worker just made.
+        found = (await searchContactsByName(api, FIXTURE_PREFIX)).find(matches);
+        if (!found) throw err;
       }
-      contact = { ...found, ...changes };
-      recordReused('contact', contact.id, key);
     }
-    result[key] = contact;
+    // A disabled contact left over from a stale prior run would silently corrupt every scenario
+    // that assumes a clean baseline, so provisioning resets to enabled. Except drivers this file's
+    // own scenarios deactivate (`opts.leaveEnabledAsIs`): in a parallel file, another worker may be
+    // mid-scenario with that driver disabled on purpose. Those scenarios reset their driver
+    // themselves (`runner.ts`, `resetDeactivatedContacts`). A contact created before fixture
+    // drivers had an email gets one here, in the same PATCH: backend-crud refuses any update to a
+    // contact with neither an email nor a mobile phone.
+    const leaveAsIs = opts.leaveEnabledAsIs?.includes(key) ?? false;
+    const changes = {
+      ...(found.enabled || leaveAsIs ? {} : { enabled: true }),
+      ...(found.email ? {} : { email }),
+    };
+    if (Object.keys(changes).length > 0) {
+      await patchContact(api, found.id, changes);
+    }
+    result[key] = { ...found, ...changes };
+    recordReused('contact', found.id, key);
   }
   return result;
 }
@@ -649,6 +664,25 @@ export async function provisionFleetRun(
   fleet: string,
   opts: { freshAsset?: boolean } = {},
 ): Promise<RunContext> {
+  const contacts = await prepareFleet(api, fleet);
+  const base = await provisionAssetWithTennaCam(api, fleet, {
+    existingAssetId: suiteAssetId(fleet),
+    freshAsset: opts.freshAsset,
+  });
+  return { ...base, contacts };
+}
+
+/**
+ * The per-worker half of `provisionFleetRun`: the account checks and the fleet's drivers, without
+ * the fleet's own asset. Scenarios run on their own assets (`FleetContext.assetFor`), so the
+ * fleet asset is only needed when one is pinned, and a parallel file's workers would otherwise all
+ * provision it at once.
+ */
+export async function prepareFleet(
+  api: ApiClient,
+  fleet: string,
+  opts: { leaveEnabledAsIs?: readonly DriverKey[] } = {},
+): Promise<Record<DriverKey, Contact>> {
   assertLicenceFleetIsolated(fleet);
   await assertExpectedAccount(api, api.accountId, fleet);
 
@@ -660,10 +694,5 @@ export async function provisionFleetRun(
     );
   }
 
-  const contacts = await ensureContacts(api, fleet);
-  const base = await provisionAssetWithTennaCam(api, fleet, {
-    existingAssetId: suiteAssetId(fleet),
-    freshAsset: opts.freshAsset,
-  });
-  return { ...base, contacts };
+  return ensureContacts(api, fleet, opts);
 }

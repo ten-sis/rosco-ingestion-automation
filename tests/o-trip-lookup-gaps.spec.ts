@@ -5,4 +5,4 @@ import { TRIP_LOOKUP_GAP_SCENARIOS } from '../src/scenarios/tripLookup';
 // asset and run in parallel with the other trip-lookup cases (src/scenarios/tripLookup.ts).
 const FLEET = 'fr-trip-lookup-gaps';
 
-defineScenarioTests(TRIP_LOOKUP_GAP_SCENARIOS, FLEET);
+defineScenarioTests(TRIP_LOOKUP_GAP_SCENARIOS, FLEET, { parallel: true });

@@ -66,9 +66,12 @@ cp .env.example .env
 
 The target account needs `account_integrations.partner = 'rosco'`. The preflight step flips the facial-recognition licence (`TennaCAM Facial Recog`) to enabled through the API before any scenario runs, but it can only flip an existing row: `POST /v4/account-licenses` cannot safely create the first one (`account_license/v4/controller.js:31-39` needs `req.session.account_id`, which the intra-service bypass never sets), so the account must already carry an `account_licenses` row for this licence, in any state, before this suite touches it. Someone with Tenna-account credentials seeds that row once per test account; preflight throws an actionable error if it is missing (`PLAN/06-BLOCKERS.md`).
 
-## One asset per spec file, and files run in parallel
+## One asset per scenario, and scenarios run in parallel
 
-Each spec file hardcodes a fleet name, and that fleet's asset is provisioned once for the file and reused by every scenario in it. Files run in parallel across workers (`fullyParallel: false`, `workers > 1`); scenarios inside a file stay serial, because the trip-recency guard is asset-scoped and two concurrent trips on one asset would make the suite lie. Fleets: `fr-live`, `fr-trip-lookup`, `fr-trip-lookup-gaps` (O12c and O6, split out so their long start waits run in parallel), `fr-delayed`, `fr-guards`, `fr-race`, `fr-licence`, `fr-phase2`. The default is 6 workers (`PW_WORKERS`), one per scenario file.
+Every scenario runs on its own asset, so most spec files run their scenarios in parallel as well as running in parallel with each other (`defineScenarioTests(..., { parallel: true })`, 12 workers by default, `PW_WORKERS` to change it). A full run takes about as long as its slowest scenario, O9 with its five repeats. Scenarios in one file do share the fleet's four drivers, so two things still run in order:
+
+- **O8 and O8b** deactivate a driver. They use driver D, which no other guards scenario uses, and run one after the other in an `inOrder` group while the rest of `o-guards` runs alongside them. Worker startup leaves D as it is, and each of the two resets D itself at its start and end.
+- **`o-licence`** turns the FR licence off (O18) and adds a trackit integration (O19). Both are account-wide, so it runs in order, on its own account.
 
 ### Assets are reused across runs
 

@@ -26,7 +26,8 @@ const created: RunManifest['created'] = [];
 /** The run id for this worker process, generated on first use and stable thereafter. */
 export function currentRunId(): string {
   if (!runId) {
-    runId = `${FIXTURE_PREFIX}-${Date.now()}`;
+    // The pid keeps two workers that start in the same millisecond from sharing a manifest file.
+    runId = `${FIXTURE_PREFIX}-${Date.now()}-${process.pid}`;
     startedAt = new Date().toISOString();
   }
   return runId;

@@ -7,10 +7,12 @@ import { env } from './src/env';
  *
  * There is no browser. Tests drive the pipeline over HTTP and assert through backend-crud reads.
  *
- * PARALLELISM. Each spec file owns its own asset, provisioned once for that file and reused by
- * every scenario in it. Files therefore run in parallel across workers, while scenarios inside a
- * file stay serial, because the trip-recency guard is asset-scoped and two concurrent trips on one
- * asset would make the suite lie. That is `fullyParallel: false` plus `workers > 1`.
+ * PARALLELISM. Every scenario runs on its own asset, `[FRTest]-<fleet>-<case id>`, reused across
+ * runs. Files run in parallel across workers, and most files also run their scenarios in parallel
+ * (`defineScenarioTests(..., { parallel: true })`). What stays in order: scenarios that deactivate
+ * a driver (O8, O8b, grouped with `inOrder` on a driver nobody else in the file uses), and the
+ * licence file, whose licence and integration changes are account-wide. `fullyParallel` stays
+ * false so a file only runs in parallel when it says so.
  */
 
 // Reading these throws if a value looks like production.
@@ -40,9 +42,10 @@ export default defineConfig({
   globalSetup: require.resolve('./src/globalSetup'),
   grepInvert,
   fullyParallel: false,
-  // One worker per scenario file keeps each file's waits from queueing behind another's. The
-  // default run has 7 scenario files (phase 2 excluded).
-  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 6,
+  // Most scenario files run their scenarios in parallel (`defineScenarioTests`' `parallel`), so
+  // this is about how many scenarios wait at once, not how many files. Nearly all their time is
+  // waiting on dv3, so 12 is far from CPU bound. Lower it if the port-forwards struggle.
+  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 12,
   forbidOnly: !!process.env.CI,
   // A retry would replay a timeline against dirty state. Fix the test instead.
   retries: 0,

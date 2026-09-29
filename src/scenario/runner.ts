@@ -183,6 +183,7 @@ export async function runScenario(scenario: Scenario, baseSc: ScenarioContext): 
 
 /** Every `Scenario` carries a `timeline` — see the module doc comment above. */
 async function runOneExecution(scenario: Scenario, baseSc: ScenarioContext, rep: number): Promise<void> {
+  await resetDeactivatedContacts(scenario, baseSc);
   try {
     await runTimelineExecution(scenario, baseSc, rep);
   } finally {
@@ -221,9 +222,25 @@ async function restoreAccountState(scenario: Scenario, sc: ScenarioContext): Pro
  * them when a worker starts, so a driver left disabled would silently change the outcome of the
  * next scenario in the file (O8 used to leave A disabled ahead of O13).
  */
+/**
+ * Makes sure every driver this scenario deactivates starts out enabled. Worker startup leaves
+ * those drivers alone (`ensureContacts`' `leaveEnabledAsIs`), because in a parallel file another
+ * worker may be mid-scenario with one disabled. A driver left disabled by a crashed run is
+ * therefore reset here, by the scenario that owns it.
+ */
+async function resetDeactivatedContacts(scenario: Scenario, sc: ScenarioContext): Promise<void> {
+  for (const driver of deactivatedDrivers(scenario)) {
+    await setContactEnabled(sc.api, sc.run.contacts[driver].id, true);
+  }
+}
+
+/** Drivers the scenario's timeline deactivates. */
+export function deactivatedDrivers(scenario: Scenario): DriverKey[] {
+  return [...new Set(scenario.timeline.flatMap((s) => (s.kind === 'deactivateContact' ? [s.driver] : [])))];
+}
+
 async function reactivateDeactivatedContacts(scenario: Scenario, sc: ScenarioContext): Promise<void> {
-  const drivers = new Set(scenario.timeline.flatMap((s) => (s.kind === 'deactivateContact' ? [s.driver] : [])));
-  for (const driver of drivers) {
+  for (const driver of deactivatedDrivers(scenario)) {
     try {
       await setContactEnabled(sc.api, sc.run.contacts[driver].id, true);
     } catch (err) {

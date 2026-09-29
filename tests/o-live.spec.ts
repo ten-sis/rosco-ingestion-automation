@@ -3,4 +3,4 @@ import { LIVE_SCENARIOS } from '../src/scenarios/live';
 
 const FLEET = 'fr-live';
 
-defineScenarioTests(LIVE_SCENARIOS, FLEET);
+defineScenarioTests(LIVE_SCENARIOS, FLEET, { parallel: true });
