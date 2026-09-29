@@ -64,6 +64,7 @@ import {
   assertDriverEvents,
   assertDriverEventRowCount,
   assertThresholdEvent,
+  assertServiceLog,
   assertTrip,
   selectByWhich,
   settle as pauseForDeliveryOrder,
@@ -774,4 +775,5 @@ export async function assertExpectation(expectation: Expectation, sc: ScenarioCo
   if (expectation.driverEvents) await assertDriverEvents(expectation.driverEvents, sc);
   if (expectation.thresholdEvents) for (const t of expectation.thresholdEvents) await assertThresholdEvent(t, sc);
   if (expectation.driverEventRowCount !== undefined) await assertDriverEventRowCount(expectation.driverEventRowCount, sc);
+  if (expectation.serviceLogs) for (const l of expectation.serviceLogs) await assertServiceLog(l, sc);
 }

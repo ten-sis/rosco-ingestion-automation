@@ -200,9 +200,9 @@ What must ship first: the per-message license check in all three consumers.
 
 Preconditions: facial recognition licence enabled, and a `trackit` account integration. TrackIt is an integration, not a licence. The runner adds a placeholder integration (its `api_key` is not a real TrackIt key) and deletes it when the scenario ends.
 Timeline: run a trip with one violation, identify A while it is open, end the trip.
-Expected end state: a clean, uncontested convergence on A, with no visible sign of TrackIt's own trip-ended handler having raced it.
+Expected end state: a clean, uncontested convergence on A, and trackit's pod logs `Skipping TrackIt assignee override: facial_recognition license enabled for account: <account>`. The early exit writes nothing to any table, so the log line is the direct proof. Without it, a TrackIt that ran and failed on the placeholder key would pass the outcome checks too.
 Negative control: the checkpoint right after ignition-on, before the identification, confirming a null baseline.
-What must ship first: the mirror licence check in `TripEventService.getAssigneeOverrides()`'s early exit. Note: there is no way to assert from outside that TrackIt's handler did not run at all; this case can only assert the outcome it would otherwise be free to disturb.
+What must ship first: the mirror licence check in `TripEventService.getAssigneeOverrides()`'s early exit. It shipped in hapi-server-trackit `v1.2.0-build.3` (TS-43906), which checks the `fcr` module and treats an account with no module row as not enabled.
 
 ## O20 — The live assignee publish is lost
 

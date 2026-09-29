@@ -61,6 +61,7 @@ export function describeExpectation(exp: Expectation): string {
   for (const d of exp.driverEvents ?? []) parts.push(`driver event: ${driverEvent(d)}`);
   for (const v of exp.thresholdEvents ?? []) parts.push(thresholdEvent(v));
   if (exp.driverEventRowCount !== undefined) parts.push(`${exp.driverEventRowCount} driver-event row(s) in total`);
+  for (const l of exp.serviceLogs ?? []) parts.push(`${l.deployment} logs "${l.contains}"`);
   return parts.length > 0 ? parts.join('; ') : 'nothing';
 }
 

@@ -197,6 +197,18 @@ export interface Expectation {
   thresholdEvents?: ThresholdEventExpectation[];
   /** Total number of driver-event rows for the run's asset, when the count itself is the point. */
   driverEventRowCount?: number;
+  /** Lines a service must log during the execution, for outcomes no table records. */
+  serviceLogs?: ServiceLogExpectation[];
+}
+
+/**
+ * A log line some pod of `deployment` must write between `t0` and the check. `contains` is
+ * matched as a substring, after `{accountId}` is replaced with the run's account.
+ */
+export interface ServiceLogExpectation {
+  namespace: string;
+  deployment: string;
+  contains: string;
 }
 
 // ---------------------------------------------------------------------------

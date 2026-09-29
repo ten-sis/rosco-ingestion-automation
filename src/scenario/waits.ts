@@ -31,7 +31,8 @@ import {
   type ScenarioContext,
 } from './context';
 import { LIVE_BUDGET_MS, POLL_INTERVAL_MS, TRIP_APPEARS_BUDGET_MS, TRIP_END_BUDGET_MS } from './timeouts';
-import type { AssigneeExpectation, DriverEventExpectation, Expectation, ThresholdEventExpectation, TripExpectation } from './types';
+import type { AssigneeExpectation, DriverEventExpectation, Expectation, ServiceLogExpectation, ThresholdEventExpectation, TripExpectation } from './types';
+import { podsStartedAfter, readDeploymentLogs } from '../read/serviceLogs';
 
 /**
  * Shared, greppable failure text for every expectation that names `driverEvents` or
@@ -516,6 +517,31 @@ export async function assertDriverEventRowCount(count: number, sc: ScenarioConte
     return;
   }
   await expect.poll(readCount, { timeout: LIVE_BUDGET_MS, intervals: [POLL_INTERVAL_MS] }).toBe(count);
+}
+
+/**
+ * Asserts one entry of `expectation.serviceLogs`: some pod of the deployment logged the line since
+ * `t0`. Polls, since the service may still be working through the message when the timeline ends.
+ * When it never shows up and a pod was replaced during the window, the failure says so, because a
+ * deleted pod takes its log with it and the line may have been written there.
+ */
+export async function assertServiceLog(exp: ServiceLogExpectation, sc: ScenarioContext): Promise<void> {
+  const needle = exp.contains.replace('{accountId}', sc.run.accountId);
+  const ref = { namespace: exp.namespace, deployment: exp.deployment };
+  const deadline = Date.now() + LIVE_BUDGET_MS;
+  for (;;) {
+    const lines = await readDeploymentLogs(ref, sc.t0);
+    if (lines.some((line) => line.includes(needle))) return;
+    if (Date.now() >= deadline) break;
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+  const replaced = await podsStartedAfter(ref, sc.t0);
+  throw new Error(
+    `${exp.namespace}/${exp.deployment} never logged "${needle}" since ${sc.t0.toISOString()}` +
+      (replaced.length > 0
+        ? `. Pod(s) ${replaced.join(', ')} started during the window, so the line may have been on a pod that was replaced.`
+        : '.'),
+  );
 }
 
 /**

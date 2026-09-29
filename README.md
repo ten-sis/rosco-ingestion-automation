@@ -12,6 +12,8 @@ scripts/tunnels.sh down      # --keep-db to leave the DB tunnel open
 
 The script refuses any kube context containing `prd` or `prod`. PIDs and logs are in `.runs/tunnels/`.
 
+The suite also runs `kubectl logs` itself, for O19's trackit log check. It uses `KUBE_CONTEXT` (default `Dv3A`, the same as `scripts/tunnels.sh`) and always passes it explicitly, so your default context can point anywhere.
+
 The webhook, scorecards and Digestion forwards default to local ports 8081, 3001 and 3002. Set `WEBHOOK_PORT`, `SCORECARDS_PORT` or `DIGESTION_PORT` in `.env` (or the shell) to move one. `scripts/tunnels.sh` opens the forward on that port and the suite calls it there. The backend-crud forward has no setting, because it must be 3000 (below). A full `WEBHOOK_BASE_URL`, `SCORECARDS_BASE_URL` or `DIGESTION_BASE_URL` still overrides the port when set.
 
 The equivalent manual commands with the default ports (every one of these Services listens on port 80 in the cluster):

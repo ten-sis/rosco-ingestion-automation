@@ -93,9 +93,18 @@ const O19: Scenario = {
     assetAssignee: { value: 'A' },
     trips: [{ tripRef: 'latest', assignee: 'A' }],
     thresholdEvents: [{ tripRef: 'latest', allAssignedTo: 'A' }],
+    // The direct proof that TrackIt stood down: its early exit logs this for an FR account. The
+    // outcome checks above can't tell that apart from TrackIt failing on the placeholder key.
+    serviceLogs: [
+      {
+        namespace: 'integration',
+        deployment: 'trackit-ingestion-rmq-0',
+        contains: 'Skipping TrackIt assignee override: facial_recognition license enabled for account: {accountId}',
+      },
+    ],
   },
   rationale:
-    "The doc: 'TripEventService.getAssigneeOverrides()'s early exit: when facial recognition is enabled, skip the rest of the trip-ended processing.' There is no direct way to assert from outside that TrackIt's own trip-ended handler did not run at all; this scenario asserts the outcome TrackIt would be able to disturb if the mirror check were missing (a clean, uncontested convergence on A) as the available proxy, consistent with the design's own admission that structural enforcement is deferred and the consumer-side check is the only prevention. Compiled from fixtures/O19-trackit-exclusivity.json (one violation, HARDBRAKE at atSec 100, before the identification's claimed atSec 150, delivered live while the trip is still open) via fixturePlayback.ts.",
+    "The doc: 'TripEventService.getAssigneeOverrides()'s early exit: when facial recognition is enabled, skip the rest of the trip-ended processing.' TrackIt's early exit writes nothing, so this asserts its info log line directly (`serviceLogs`), alongside the outcome it would otherwise be free to disturb (a clean, uncontested convergence on A). The trackit integration is a placeholder, so without the log check a TrackIt that ran and failed on the fake key would pass too. Compiled from fixtures/O19-trackit-exclusivity.json (one violation, HARDBRAKE at atSec 100, before the identification's claimed atSec 150, delivered live while the trip is still open) via fixturePlayback.ts.",
 };
 
 export const LICENCE_SCENARIOS: readonly Scenario[] = [O18, O19];
