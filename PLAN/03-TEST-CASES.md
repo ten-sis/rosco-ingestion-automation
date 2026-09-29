@@ -126,9 +126,9 @@ See the covering-guard table in `AGENT-BRIEF.md` / the design doc's "Trip lookup
 
 Run and close a trip; deliver a late identification timestamped inside it. Linked, `flags.arrived_after_trip_ended` true, assignee written by the identification consumer's own insert-time path (no later trip exists to supersede it).
 
-## O12c — Trip lookup: closed trip ended before the identification, `end_date < ts` (`o-trip-lookup.spec.ts`)
+## O12c — Trip lookup: identification between two trips (`o-trip-lookup-gaps.spec.ts`)
 
-Run and close a trip; deliver an identification timestamped after it ended. Not linked. Row persists with `trip_id` null, `is_assignee_source` null, no write. This is the case the design doc calls out by name: the real-world cause is usually that the true covering trip does not exist yet, and linking anyway would move the wrong trip's violations onto today's driver.
+Run and close a trip, start a second one, and deliver an identification timestamped in the gap between them. At insert the covering guard finds trip 1, which ended before the identification, so the row is not linked and carries `arrived_before_trip_created` (checkpoint). When trip 2 ends, its search window is floored at trip 1's end, so it links the row and awards it the claim: asset A, trip 2 A. The design doc's trip-end section: "an identification between two trips belongs to the trip that followed it".
 
 ## O12d — Trip lookup: no trip at all (`o-trip-lookup.spec.ts`)
 
@@ -161,7 +161,7 @@ Known gap: see `06-BLOCKERS.md`. `ThresholdEventExpectation` has no field for "t
 
 ## O14 — Identification timestamped before its own trip started (`o-trip-lookup.spec.ts`)
 
-RESOLVED, see `06-BLOCKERS.md`. The trip-end search window is floored at this trip's own `start_date`, not at the previous trip's end and not by the pre-start tolerance (that fallback is reserved for an asset's very first trip ever, per O21, which this is not — `o-trip-lookup.spec.ts` runs O12a-f before O14 on the same shared asset). An identification timestamped before its own trip started therefore falls outside the window: not linked, no claim, no assignee change anywhere.
+Preconditions: asset assignee D. An identification for A stamped 120 seconds before its trip starts. At insert it belongs to no trip, so it is unlinked (checkpoint). At trip end the search window is floored at the previous trip's end (or at the trip's start minus the ten-minute pre-start tolerance when there is no previous trip), so the row is found, linked and awarded the claim: asset A, trip A. This follows the design doc's trip-end section and the consumer. The doc's O14 row ("no assignee change across the board") disagrees; see `06-BLOCKERS.md`.
 
 ## O15 — Type 6 then Type 7 in one trip (`o-live.spec.ts`)
 

@@ -176,31 +176,49 @@ const o12cPart2Base = expandFixtureToSteps(o12cPart2Fixture as Fixture, {
 });
 const o12cBase: Step[] = [...o12cPart1Base, ...o12cPart2Base];
 const o12cIdentIndex = lastIndexWhere(o12cBase, (s) => s.kind === 'ident');
-const o12cTimeline: Step[] = insertAfterIndex(o12cBase, o12cIdentIndex, {
+const o12cWithIdentSettle = insertAfterIndex(o12cBase, o12cIdentIndex, {
   kind: 'settle',
   atSec: 6,
   until: 'identificationPersisted',
   budget: 'LIVE_BUDGET_MS',
 });
+const o12cIdentSettleIndex = o12cIdentIndex + 1;
+const o12cTimeline: Step[] = [
+  ...o12cWithIdentSettle,
+  { kind: 'settle', atSec: 901, until: 'tripEnded', budget: 'TRIP_END_BUDGET_MS' },
+];
 
 const O12c: Scenario = {
   id: 'O12c',
-  title: 'Trip lookup: closed trip ended before the identification (end_date < ts)',
+  title: 'Trip lookup: identification between two trips, unlinked at insert, claimed by the trip that follows',
   priority: 'P0',
   tags: [],
-  // H3: B is not otherwise involved (this case uses only A). This case expects 'unchanged'
-  // (unlinked, no write) — without a non-A precondition, 'unchanged' would trivially hold against
-  // residue A left by O12a/O12b even if a bug wrote A here too; starting at B makes 'unchanged'
-  // an actual proof that nothing wrote over it.
+  // B is not otherwise involved (this case uses only A), so ending at A is a real write.
   preconditions: { assetAssignee: 'B' },
   timeline: o12cTimeline,
+  expectAfterStep: [
+    {
+      // At insert the latest trip that started before the identification is trip 1, which ended
+      // before it, so the covering guard does not link it (the doc's table, row 3).
+      afterIndex: o12cIdentSettleIndex,
+      expect: {
+        assetAssignee: { value: 'unchanged' },
+        driverEvents: [
+          { driver: 'A', isAssigneeSource: null, tripLink: { state: 'unlinked' }, flags: { arrived_before_trip_created: true } },
+        ],
+      },
+    },
+  ],
   expect: {
-    assetAssignee: { value: 'unchanged' },
-    trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
-    driverEvents: [{ driver: 'A', isAssigneeSource: null, tripLink: { state: 'unlinked' } }],
+    // At trip 2's end, its search window is floored at trip 1's end, so it finds the row and
+    // awards it the claim: "an identification between two trips belongs to the trip that followed
+    // it" (design doc, trip-end search window).
+    assetAssignee: { value: 'A' },
+    trips: [{ tripRef: 'latest', assignee: 'A' }],
+    driverEvents: [{ driver: 'A', isAssigneeSource: true, tripLink: { state: 'linked', tripRef: 'latest' } }],
   },
   rationale:
-    "Covering-guard table, row 3: '`end_date < timestamp` -> The identification happened after that trip ended -> Do not link. The row persists with no trip.' Compiled from fixtures/O12c-part1-first-trip.json and fixtures/O12c-part2-second-trip-gap-identification.json, played in order against the same asset, via fixturePlayback.ts: a first trip closes, then a second, later trip runs, and the identification's claimed timestamp falls in the gap between them, covered by neither. This is a sharper rendition of the doc's own point than the previous single-trip version: 'the lookup must not opportunistically attach it to whichever trip is nearest' is only actually exercised when a second trip genuinely exists to be opportunistic about. Part2 is compiled with `atSecOffset: lastAtSec(o12cPart1Base) + TWO_PART_TRIP_GAP_SEC` (see that constant's own comment) so its trip continues part1's clock (150) rather than restarting at 0; its identification's local atSec -40 lands at 690, comfortably inside the gap between trip1's end (150) and trip2's start (730).",
+    "Covering-guard table, row 3: '`end_date < timestamp` -> The identification happened after that trip ended -> Do not link. The row persists with no trip.' That is the insert-time result, asserted at the checkpoint. The doc's trip-end section then says the search window's 'lower bound is therefore the previous trip's end rather than this trip's start' and 'an identification between two trips belongs to the trip that followed it', which the consumer implements (`resolveWindowStart` in hapi-server-rosco-ingestion-rmq), so trip 2's end links the row and awards it the claim. Compiled from fixtures/O12c-part1-first-trip.json and fixtures/O12c-part2-second-trip-gap-identification.json, played in order against the same asset, via fixturePlayback.ts. Part2 is compiled with `atSecOffset: lastAtSec(o12cPart1Base) + TWO_PART_TRIP_GAP_SEC` (see that constant's own comment) so its trip continues part1's clock (150) rather than restarting at 0; its identification's local atSec -40 lands at 690, inside the gap between trip1's end (150) and trip2's start (730).",
 };
 
 // ---------------------------------------------------------------------------
@@ -374,10 +392,7 @@ const O14: Scenario = {
   title: "Identification timestamped before its own trip started",
   priority: 'P0',
   tags: [],
-  // H3: D is not otherwise involved. This case expects 'unchanged'; a non-A precondition makes
-  // that an actual proof rather than a trivial pass against residue left by O12a-f. This only
-  // patches the asset's standing assignee, so it does not disturb the trip history on this asset
-  // that this scenario's own position (after O12a-f) depends on.
+  // D is not otherwise involved, so ending at A is a real write.
   preconditions: { assetAssignee: 'D' },
   timeline: o14Timeline,
   expectAfterStep: [
@@ -390,12 +405,15 @@ const O14: Scenario = {
     },
   ],
   expect: {
-    assetAssignee: { value: 'unchanged' },
-    trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
-    driverEvents: [{ driver: 'A', isAssigneeSource: null, tripLink: { state: 'unlinked' } }],
+    // Trip end recovers it: the window is floored at the previous trip's end (or, with no previous
+    // trip in the lookback, at this trip's start minus the ten-minute pre-start tolerance), so an
+    // identification stamped 120 seconds before the trip is found, linked and awarded the claim.
+    assetAssignee: { value: 'A' },
+    trips: [{ tripRef: 'latest', assignee: 'A' }],
+    driverEvents: [{ driver: 'A', isAssigneeSource: true, tripLink: { state: 'linked', tripRef: 'latest' } }],
   },
   rationale:
-    "RESOLVED, see PLAN/06-BLOCKERS.md. The trip-end search window is floored at this trip's own start_date, not at the previous trip's end and not by the pre-start tolerance, so an identification timestamped before the trip started (here, -120s) falls outside the window regardless of what preceded it: not linked, no claim, no write. The pre-start tolerance (ten minutes, O21) is a distinct, narrower mechanism reserved for an asset's very first trip ever, which this is not: `o-trip-lookup.spec.ts` runs every scenario in this file serially against one shared per-fleet asset (`fr-trip-lookup`), and O12a through O12f already create and close normal trips on it before O14 runs, so this asset already has trip history by the time O14's own trip starts. That is what makes the two mechanisms distinguishable in practice rather than merely by definition, and it is why this scenario's position in `TRIP_LOOKUP_SCENARIOS` (after O12a-f) is load-bearing, not incidental. Compiled from fixtures/O14-identification-before-trip-started.json via fixturePlayback.ts: the identification's `deliverAtSec: 0` ties it to the trip's own `IGN_ON` (also atSec/deliverAtSec 0); `planPlayback`'s stable sort resolves the tie by delivering the trip event first, so by the time this identification lands a trip row may already exist, which is exactly why the rationale above says 'regardless of what preceded it' rather than depending on no trip existing yet at insert time (contrast O12f, where the identification is deliberately delivered before any trip exists).",
+    "The doc's trip-end section: an identification timestamped slightly before its trip is found at insert to belong to no trip, and 'trip end already floors its search on the previous trip's end and recovers that row'. The consumer implements that (`resolveWindowStart` in hapi-server-rosco-ingestion-rmq), so the row is unlinked at insert (checkpoint) and claimed at trip end. The doc's own O14 row ('no assignee change across the board') disagrees with that section and has been flagged to the doc owners (PLAN/06-BLOCKERS.md). The floor at the trip's own start_date belongs to the phase 2 trip-start consumer, not to trip end. Compiled from fixtures/O14-identification-before-trip-started.json via fixturePlayback.ts: the identification claims atSec -120 and is delivered at deliverAtSec 0, tied with the trip's own IGN_ON; planPlayback's stable sort delivers the trip event first.",
 };
 
 // ---------------------------------------------------------------------------

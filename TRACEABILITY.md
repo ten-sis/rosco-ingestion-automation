@@ -28,7 +28,7 @@ Status values:
 | O9 | `o-race.spec.ts` | `O9` | covered | The identification and trip-end fire together, repeated 5 times, as the doc's row describes |
 | O12 | `o-trip-lookup.spec.ts`, `o-trip-lookup-gaps.spec.ts` (O12c) | `O12a`, `O12b`, `O12c`, `O12d`, `O12e`, `O12f` | partial | One scenario per lookup outcome. `O12e` needs a heartbeat or virtual trip, which the emitter can't produce yet; see `PLAN/06-BLOCKERS.md` |
 | O13 | `o-guards.spec.ts` | `O13` | partial | "Already-transferred events are excluded" is asserted. The transfer half is only covered indirectly; see `PLAN/06-BLOCKERS.md` |
-| O14 | `o-trip-lookup.spec.ts` | `O14` | partial | "No assignee change" is asserted. "Monitor clock drift" is an observation. Search window resolved; see `PLAN/06-BLOCKERS.md` |
+| O14 | `o-trip-lookup.spec.ts` | `O14` | partial | Asserts trip end recovering the row (linked, claim, asset A), per the doc's trip-end section and the consumer. The doc's O14 row says "no assignee change", which contradicts that section; see `PLAN/06-BLOCKERS.md`. "Monitor clock drift" is an observation |
 | O15 | `o-live.spec.ts` | `O15` | covered | |
 | O16 | `o-live.spec.ts` | `O16` | covered | Asserts the outcome (one row, one assignee write). The S3 check the doc describes isn't visible from outside the cluster |
 | O17 | `o-live.spec.ts` | `O17` | covered | |

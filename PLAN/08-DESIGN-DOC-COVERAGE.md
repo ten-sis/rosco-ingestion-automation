@@ -26,9 +26,9 @@ A run does not validate them yet, because of a harness timing bug (found 2026-09
 | O7.2 Manual correction overridden | `O7.2` | Differs | Same as O7.1. As built, the identification's timestamp (logical 180 s) is older than the manual change, so by the doc's rule the asset correctly stays C. |
 | O8 Deactivated contact | `O8`, `O8b` | Yes | Both ways a contact can be deactivated: after its row is written (`O8`, blocked by the trip-end guard's live re-check) and before the identification arrives (`O8b`, row flagged `contact_is_active: false`). Each asserts the doc's three outcomes: no asset write, no trip write, no reassignment. |
 | O9 Insert-time race | `O9` | Yes | Runs several times, as the doc asks, alternating which side is sent first. |
-| O12 Six trip-lookup outcomes | `O12a` to `O12f` | Partly | `O12e` (heartbeat or virtual trip) depends on the telemetry emitter producing one, which it can't yet (`PLAN/06-BLOCKERS.md`). The other five are covered. |
+| O12 Six trip-lookup outcomes | `O12a` to `O12f` | Partly | `O12e` (heartbeat or virtual trip) depends on the telemetry emitter producing one, which it can't yet (`PLAN/06-BLOCKERS.md`). The other five are covered. O12c checks the covering guard at insert (not linked) and then trip end claiming the row for the following trip. |
 | O13 Excludes reassigned violations | `O13` | Partly | The "already-transferred events are excluded" half is asserted. The "events before the winner's receipt time are transferred" half is only covered indirectly. |
-| O14 Timestamped before trip start | `O14` | Partly | "No assignee change" is asserted. "Monitor clock drift" is an observation. |
+| O14 Timestamped before trip start | `O14` | Differs | The doc's O14 row says no assignee change. Its trip-end section, and the consumer, recover the row at trip end (previous-trip floor), so the scenario asserts the recovery. Flagged to the doc owners in `PLAN/06-BLOCKERS.md`. |
 | O15 Type 6 then Type 7 | `O15` | Yes | |
 | O16 Redelivered webhook | `O16` | Indirectly | The doc's mechanism is the S3 object check publishing nothing. The suite can't see S3, so it asserts the outcome instead: one row and one assignee write. That passes whether the S3 check or the unique index did the work. |
 | O17 Multi-day trip | `O17` | Yes | The day-two identification is stamped ahead of its send time on purpose (README). |

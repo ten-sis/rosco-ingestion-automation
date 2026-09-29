@@ -15,11 +15,13 @@ One row per blocker: what is blocked, which cases it blocks, what must ship, who
 
 Resolved and removed from this table since the previous revision of this pack: the port-forward-free emitter. `POST /v5/rosco-events/publish` was not widened. backend-crud added `POST /v5/rosco-driver-events/publish` for Types 6 and 7 instead (TS-43926), and `EMITTER=becrud` now targets it. Also: the licence toggle path (O18, O19) is enabled through the API by the preflight step, not a manual CS step; O20 is no longer an automated case at all (see `OUT-OF-SCOPE.md`), so there is nothing left to block.
 
-## O14, resolved
+## O14 and O12c: trip end recovers the identification (changed 2026-09-29)
 
-Previously contested (see the git history of this pack for the earlier back-and-forth). AGENT-BRIEF revision 2, item 6, settles it: the trip-end search window is floored at the trip's own `start_date`, not at the previous trip's end, so an identification timestamped before its own trip started falls outside the window regardless of what preceded it — not linked, no claim, no assignee change anywhere. `src/scenarios/tripLookup.ts`'s `O14` asserts exactly that, and no longer carries the `@contested` tag.
+This pack's earlier "O14, resolved" note said the trip-end search window is floored at the trip's own `start_date`. That was wrong. The floor at a trip's own start belongs to the phase 2 trip-start consumer. The design doc's trip-end section says "the lower bound is therefore the previous trip's end rather than this trip's start", falling back to the trip's start minus a ten-minute pre-start tolerance when there is no previous trip, and that "an identification between two trips belongs to the trip that followed it". The consumer implements exactly that (`resolveWindowStart` in hapi-server-rosco-ingestion-rmq's `assetTripEnded.ts`).
 
-This also resolves the apparent tension with O21 without either case needing to change: the pre-start tolerance (ten minutes, used when no previous trip exists in the lookback) is a distinct, narrower mechanism reserved for an asset's very first trip ever, which O14 deliberately is not. `o-trip-lookup.spec.ts` runs O12a through O12f before O14 in `TRIP_LOOKUP_SCENARIOS`, all serially against the one shared `fr-trip-lookup` asset, so by the time O14's own trip starts, that asset already has trip history and the pre-start tolerance does not apply to it. O21 (`@phase2`) is the only case that deliberately requires a fresh, trip-history-free asset, and its own preconditions say so explicitly. The two cases describe genuinely different mechanisms, not two readings of the same one; the earlier contradiction was between the plan's prose and a design-doc table row that did not distinguish "this trip's own floor" from "the previous trip's end" carefully enough, not between the two scenarios themselves.
+So O14 (stamped before its trip started) and O12c (between two trips) are both unlinked at insert and recovered at trip end: linked, awarded the claim, and the asset and trip assigned. Both scenarios now assert that.
+
+**For the design doc owners:** the doc's O14 row still says "inserted, but no assignee change across the board", which contradicts its own trip-end section and the implementation. The O12 row's covering-guard table is correct, but it only describes insert time.
 
 ## O7.1 / O7.2, a judgment call
 
