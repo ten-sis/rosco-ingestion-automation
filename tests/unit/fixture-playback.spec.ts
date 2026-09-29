@@ -140,10 +140,10 @@ test.describe('hand-computed expected schedules (one fixture per delay mode)', (
 
     const expected: ExpectedItem[] = [
       { kind: 'trip', label: 'IGN_ON', deliverAtMs: 0, timestampIso: '2026-01-01T00:00:00.000Z', atSec: 0 },
-      { kind: 'trip', label: 'HARDBRAKE', deliverAtMs: 30_000, timestampIso: '2026-01-01T00:00:30.000Z', atSec: 30 },
       { kind: 'trip', label: 'ON_PERIODIC@58', deliverAtMs: 58_000, timestampIso: '2026-01-01T00:00:58.000Z', atSec: 58 },
       { kind: 'ident', label: 'driver A', deliverAtMs: 70_000, timestampIso: '2026-01-01T00:01:10.000Z', atSec: 70 },
       { kind: 'trip', label: 'ON_PERIODIC@116', deliverAtMs: 116_000, timestampIso: '2026-01-01T00:01:56.000Z', atSec: 116 },
+      { kind: 'trip', label: 'HARDBRAKE', deliverAtMs: 130_000, timestampIso: '2026-01-01T00:02:10.000Z', atSec: 130 },
       { kind: 'trip', label: 'ON_PERIODIC@174', deliverAtMs: 174_000, timestampIso: '2026-01-01T00:02:54.000Z', atSec: 174 },
       { kind: 'trip', label: 'IGN_OFF', deliverAtMs: 180_000, timestampIso: '2026-01-01T00:03:00.000Z', atSec: 180 },
     ];

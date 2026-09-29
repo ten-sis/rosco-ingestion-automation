@@ -130,10 +130,10 @@ const O2: Scenario = {
   expect: {
     assetAssignee: { value: 'A' },
     trips: [{ tripRef: 'latest', assignee: 'A' }],
-    thresholdEvents: [{ tripRef: 'latest', noTransfers: true }],
+    thresholdEvents: [{ tripRef: 'latest', allAssignedTo: 'A', noTransfers: true }],
   },
   rationale:
-    "The doc's own words for O2: 'Both writes fire immediately. At trip end the consumer finds both already set and has nothing to reassign.' The timeline is compiled from fixtures/O2-live-open-trip.json (a three-minute trip played in real time, ON_PERIODIC every 58 seconds, one identification 70 seconds in) via fixturePlayback.ts; this scenario adds only the two `settle` waits the fixture format has no field for and the checkpoints against them. The checkpoint right after ignition-on, before the identification, proves the fixture starts clean; the checkpoint right after the identification, and the identical literal 'A' repeated in the final assertion, are what show trip end changed nothing and transferred nothing. The fixture carries a HARDBRAKE at atSec 30, before the identification, so the final `thresholdEvents: { noTransfers: true }` is a live proof of 'nothing left to reassign' rather than a vacuous pass against an empty trip.",
+    "The doc's own words for O2: 'Both writes fire immediately. At trip end the consumer finds both already set and has nothing to reassign.' The timeline is compiled from fixtures/O2-live-open-trip.json (a three-minute trip played in real time, ON_PERIODIC every 58 seconds, one identification 70 seconds in) via fixturePlayback.ts; this scenario adds only the two `settle` waits the fixture format has no field for and the checkpoints against them. The checkpoint right after ignition-on, before the identification, proves the fixture starts clean; the checkpoint right after the identification, and the identical literal 'A' repeated in the final assertion, are what show trip end changed nothing and transferred nothing. The fixture carries a HARDBRAKE at atSec 130, after the identification, so it is scored live on A and the final `thresholdEvents` (all on A, none transferred) proves 'nothing left to reassign'. A violation before the identification is moved to A at trip end by a transfer (the trip-end consumer's `transferThresholdEvents`), which is O1's case, so it can't be the proof here.",
 };
 
 // ---------------------------------------------------------------------------
