@@ -245,4 +245,9 @@ export interface Scenario {
    * doc's O1 is real hardware, and this suite can only run it simulated.
    */
   caveat?: string;
+  /**
+   * Set when the scenario cannot pass for a reason outside the product, with that reason. The test
+   * is registered as `test.fixme` and reported as skipped, with the reason, in the run summary.
+   */
+  fixme?: string;
 }

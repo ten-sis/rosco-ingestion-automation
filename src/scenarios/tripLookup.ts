@@ -272,6 +272,8 @@ const O12e: Scenario = {
   // H3: D is not otherwise involved. This case expects 'unchanged'; a non-A precondition makes
   // that an actual proof rather than a trivial pass against residue left by an earlier scenario.
   preconditions: { assetAssignee: 'D' },
+  fixme:
+    'The telemetry emitter can only produce normal trips, so a normal trip covers the identification and wins the claim. Needs a heartbeat or virtual trip, which no Step kind can produce yet (PLAN/06-BLOCKERS.md).',
   timeline: o12eTimeline,
   expect: {
     assetAssignee: { value: 'unchanged' },

@@ -60,7 +60,13 @@ function failedStep(steps: readonly TestStep[]): string | undefined {
 
 function annotationsOf(test: TestCase, result: TestResult): Map<string, string> {
   const all = [...test.annotations, ...((result as { annotations?: TestCase['annotations'] }).annotations ?? [])];
-  return new Map(all.map((a) => [a.type, a.description ?? '']));
+  // Playwright adds its own description-less annotation for test.fixme, which must not replace
+  // the one defineScenarioTests attached with the reason.
+  const map = new Map<string, string>();
+  for (const a of all) {
+    if (a.description || !map.has(a.type)) map.set(a.type, a.description ?? '');
+  }
+  return map;
 }
 
 function duration(ms: number): string {
@@ -156,14 +162,14 @@ export default class SummaryReporter implements Reporter {
     if (scenarios.length > 0) {
       out.push('## Results');
       out.push('');
-      out.push('| Case | Priority | Result | Time | Failed at |');
+      out.push('| Case | Priority | Result | Time | Failed at / note |');
       out.push('|---|---|---|---|---|');
       // A case with a caveat gets a marker here, spelled out in its section below.
       for (const r of scenarios) {
         const failed = r.status === 'failed' || r.status === 'timedOut';
         out.push(
           `| ${r.annotations.get('case')}${r.annotations.has('caveat') ? ' (see caveat)' : ''} | ${r.annotations.get('priority') ?? ''} | ${STATUS_LABEL[r.status]} | ` +
-            `${duration(r.durationMs)} | ${failed ? cell(r.failedAt ?? '(before the first step)') : ''} |`,
+            `${duration(r.durationMs)} | ${failed ? cell(r.failedAt ?? '(before the first step)') : cell(r.annotations.get('fixme') ? `fixme: ${r.annotations.get('fixme')}` : '')} |`,
         );
       }
       out.push('');
@@ -182,6 +188,8 @@ export default class SummaryReporter implements Reporter {
         out.push(`- **This scenario asserts:** ${r.annotations.get('asserts') ?? ''}`);
         const caveat = r.annotations.get('caveat');
         if (caveat) out.push(`- **Caveat:** ${caveat}`);
+        const fixme = r.annotations.get('fixme');
+        if (fixme) out.push(`- **Skipped (fixme):** ${fixme}`);
         if (r.status === 'failed' || r.status === 'timedOut') {
           out.push(`- **Failed at:** ${r.failedAt ?? '(before the first step, during provisioning or setup)'}`);
           if (r.error) out.push(`- **Error:** \`${r.error.replace(/`/g, "'")}\``);

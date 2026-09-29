@@ -192,6 +192,10 @@ export function defineScenarioTests(
     // scenario (O9 runs five times) needs that budget for every execution.
     const plannedMs = scenario.timeline.reduce((sum, s) => sum + Math.max(0, s.sendAfterMs ?? 0), 0);
     const executionBudgetMs = (scenario.repeat ?? 1) * (startWaitMs + plannedMs + EXECUTION_OVERHEAD_MS);
+    if (scenario.fixme) {
+      test.fixme(title, { annotation: [...annotation, { type: 'fixme', description: scenario.fixme }] }, () => {});
+      continue;
+    }
     test(title, { annotation }, async ({ fr }, testInfo) => {
       // A pinned asset (ASSET_ID / ASSET_ID_<FLEET>) is used as-is by every scenario in the file.
       // Otherwise each scenario gets its own asset (see `FleetContext`).
