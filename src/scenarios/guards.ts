@@ -144,7 +144,7 @@ const o8IdentSettleIndex = o8IdentIndex + 1;
 const o8WithDeactivate = insertAfterIndex(o8WithIdentSettle, o8IdentSettleIndex, {
   kind: 'deactivateContact',
   atSec: 62,
-  driver: 'A',
+  driver: 'D',
   note: 'deactivated after the row exists but before any consumer ever awards the claim',
 });
 const o8IgnitionOffIndex = lastIndexWhere(o8WithDeactivate, (s) => s.kind === 'ignitionOff');
@@ -160,9 +160,9 @@ const O8: Scenario = {
   title: 'Contact deactivated after winning the claim, before the trip-end backstop runs',
   priority: 'P0',
   tags: [],
-  // A is not involved as a baseline here (only as the identified driver): B keeps the required
-  // 'unchanged' assertions falsifiable against a buggy award that writes A anyway, the same
-  // reasoning as O7.1/O7.2.
+  // The identified driver is D, not A: O8 and O8b deactivate their driver, and D is the one no
+  // other scenario in this file uses, so the rest of the file can run alongside them. B keeps the
+  // required 'unchanged' assertions falsifiable against a buggy award that writes D anyway.
   preconditions: { assetAssignee: 'B' },
   timeline: o8Timeline,
   expectAfterStep: [
@@ -170,7 +170,7 @@ const O8: Scenario = {
       afterIndex: o8IdentSettleIndex,
       expect: {
         assetAssignee: { value: 'unchanged' },
-        driverEvents: [{ driver: 'A', isAssigneeSource: null, tripLink: { state: 'unlinked' } }],
+        driverEvents: [{ driver: 'D', isAssigneeSource: null, tripLink: { state: 'unlinked' } }],
       },
     },
   ],
@@ -179,7 +179,7 @@ const O8: Scenario = {
     trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
     driverEvents: [
       {
-        driver: 'A',
+        driver: 'D',
         // No `isAssigneeSource` here. The doc's O8 row asks for no asset write, no trip write and
         // no reassignment, which the assignee expectations above cover. Whether the row itself
         // wins the claim is not part of it: on dv3 (2026-09-28) the row won the claim
@@ -197,17 +197,18 @@ const O8: Scenario = {
     thresholdEvents: [{ tripRef: 'latest', noTransfers: true }],
   },
   rationale:
-    "The doc: 'Re-check the winning contact's live enabled and deleted state, rather than the row's frozen flag. Inactive or deleted skips the asset write, the trip write and the reassignment.' The identification is sent before any trip exists, so the claim is decided at trip end. A is active when the row is written, so the row is eligible and wins the claim, and A is deactivated before the trip ends. The trip-end consumer then re-checks A's live state and skips every write. The assignee and violation expectations are the proof. Compiled from fixtures/O8-contact-deactivated-before-trip-end.json (`delay.mode: 'full-burst'`, `burstStartAtSec: 20`: identification delivered at deliverAtSec 0, before any trip exists, trip frames follow as a burst) via fixturePlayback.ts; the `deactivateContact` step is spliced in right after the identification's own settle, since the fixture format has no field for it. The fixture carries a HARDBRAKE at atSec 30, before the identification's claimed atSec 60, so `thresholdEvents: { noTransfers: true }` is a live proof the deactivated contact never picks up a violation, not a vacuous pass against an empty trip. The runner re-enables A when the scenario ends",
+    "The doc: 'Re-check the winning contact's live enabled and deleted state, rather than the row's frozen flag. Inactive or deleted skips the asset write, the trip write and the reassignment.' The identification is sent before any trip exists, so the claim is decided at trip end. D is active when the row is written, so the row is eligible and wins the claim, and D is deactivated before the trip ends. The trip-end consumer then re-checks D's live state and skips every write. The assignee and violation expectations are the proof. Compiled from fixtures/O8-contact-deactivated-before-trip-end.json (`delay.mode: 'full-burst'`, `burstStartAtSec: 20`: identification delivered at deliverAtSec 0, before any trip exists, trip frames follow as a burst) via fixturePlayback.ts; the `deactivateContact` step is spliced in right after the identification's own settle, since the fixture format has no field for it. The fixture carries a HARDBRAKE at atSec 30, before the identification's claimed atSec 60, so `thresholdEvents: { noTransfers: true }` is a live proof the deactivated contact never picks up a violation, not a vacuous pass against an empty trip. The runner re-enables D when the scenario ends",
 };
 
 // ---------------------------------------------------------------------------
 // O8b — compiled from fixtures/O8b-contact-disabled-before-identification.json
 // ---------------------------------------------------------------------------
 
-// A is deactivated before the trip starts, so the identification arrives for a contact that is
-// already disabled. The runner re-enables A when the scenario ends.
+// D is deactivated before the trip starts, so the identification arrives for a contact that is
+// already disabled. The runner re-enables D when the scenario ends. D, like O8, because no other
+// scenario in this file uses it.
 const o8bBase: Step[] = [
-  { kind: 'deactivateContact', atSec: 0, driver: 'A', note: 'disabled before the identification arrives' },
+  { kind: 'deactivateContact', atSec: 0, driver: 'D', note: 'disabled before the identification arrives' },
   ...expandFixtureToSteps(o8bFixture as Fixture),
 ];
 const o8bIdentIndex = lastIndexWhere(o8bBase, (s) => s.kind === 'ident');
@@ -225,7 +226,7 @@ const O8b: Scenario = {
   title: 'Identification for a contact already disabled when it arrives',
   priority: 'P0',
   tags: [],
-  // B keeps the 'unchanged' assertions falsifiable against a buggy consumer that writes A anyway.
+  // B keeps the 'unchanged' assertions falsifiable against a buggy consumer that writes D anyway.
   preconditions: { assetAssignee: 'B' },
   timeline: o8bTimeline,
   expectAfterStep: [
@@ -235,7 +236,7 @@ const O8b: Scenario = {
         assetAssignee: { value: 'unchanged' },
         trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
         // Ineligible at insert, so the identification consumer does no trip lookup at all.
-        driverEvents: [{ driver: 'A', isAssigneeSource: null, tripLink: { state: 'unlinked' }, contactActive: false }],
+        driverEvents: [{ driver: 'D', isAssigneeSource: null, tripLink: { state: 'unlinked' }, contactActive: false }],
       },
     },
   ],
@@ -244,7 +245,7 @@ const O8b: Scenario = {
     trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
     driverEvents: [
       {
-        driver: 'A',
+        driver: 'D',
         // Trip end links every unlinked row to the trip and awards nothing to an ineligible one.
         // No `isAssigneeSource`: the local consumer source marks such a row false, but on dv3
         // (2026-09-28) it stayed null. The doc's O8 row only asks that nothing is written, which
@@ -257,7 +258,7 @@ const O8b: Scenario = {
     thresholdEvents: [{ tripRef: 'latest', noTransfers: true }],
   },
   rationale:
-    "The doc's O8: 'Driver identification for deactivated Contact. No asset write, no trip write, no reassignment.' This is that case with the contact disabled before the identification arrives; O8 covers it being deactivated after its row is written. The identification consumer resolves A, records the contact as inactive (flags.contact_is_active false, the design's 'row still persists with its contact and the inactive flag'), and skips the trip lookup because the row is not eligible. At trip end the row is linked to the trip and no claim is awarded, so nothing is written. The HARDBRAKE at atSec 30 makes `noTransfers` a live check rather than a pass against an empty trip. Not a separate row in the doc's table; it maps to O8.",
+    "The doc's O8: 'Driver identification for deactivated Contact. No asset write, no trip write, no reassignment.' This is that case with the contact disabled before the identification arrives; O8 covers it being deactivated after its row is written. The identification consumer resolves D, records the contact as inactive (flags.contact_is_active false, the design's 'row still persists with its contact and the inactive flag'), and skips the trip lookup because the row is not eligible. At trip end the row is linked to the trip and no claim is awarded, so nothing is written. The HARDBRAKE at atSec 30 makes `noTransfers` a live check rather than a pass against an empty trip. Not a separate row in the doc's table; it maps to O8.",
 };
 
 // ---------------------------------------------------------------------------

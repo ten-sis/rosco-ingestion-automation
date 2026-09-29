@@ -1,7 +1,7 @@
 {
   "id": "O8",
   "title": "Contact deactivated after winning the claim, before the trip-end backstop runs",
-  "description": "The identification is delivered live, at deliverAtSec 0, before any trip exists on this asset -- the contact is active at that moment, so any insert-time snapshot records it active. The scenario then deactivates driver A (external step, not part of this fixture) before the trip-end consumer ever runs. The trip's own frames arrive afterward as a full burst starting at burstStartAtSec 20. One HARDBRAKE at atSec 30, before the identification's claimed atSec 60, so it is a violation raised while the driver was still unknown -- this is the violation the `noTransfers: true` assertion depends on. Must prove: the identification consumer's insert-time snapshot is unaffected (still unlinked, no claim yet, since no trip existed at insert time), and the trip-end consumer's live re-check of the contact's enabled/deleted state (not the insert-time snapshot) is what actually blocks the award. Must NOT change: neither the asset assignee nor the trip assignee may ever move to A once the contact is deactivated, and no threshold event may be transferred.",
+  "description": "The identification is delivered live, at deliverAtSec 0, before any trip exists on this asset -- the contact is active at that moment, so any insert-time snapshot records it active. The scenario then deactivates driver D (external step, not part of this fixture) before the trip-end consumer ever runs. The trip's own frames arrive afterward as a full burst starting at burstStartAtSec 20. One HARDBRAKE at atSec 30, before the identification's claimed atSec 60, so it is a violation raised while the driver was still unknown -- this is the violation the `noTransfers: true` assertion depends on. Must prove: the identification consumer's insert-time snapshot is unaffected (still unlinked, no claim yet, since no trip existed at insert time), and the trip-end consumer's live re-check of the contact's enabled/deleted state (not the insert-time snapshot) is what actually blocks the award. Must NOT change: neither the asset assignee nor the trip assignee may ever move to D once the contact is deactivated, and no threshold event may be transferred.",
   "suite": "fr-guards",
   "delay": {
     "mode": "full-burst",
@@ -47,9 +47,9 @@
     {
       "atSec": 60,
       "deliverAtSec": 0,
-      "driver": "A",
+      "driver": "D",
       "type": "identDrv",
-      "note": "delivered before any trip exists; contact is active at resolution time. The scenario deactivates driver A afterward, before trip end, as an external step not encoded in this fixture"
+      "note": "delivered before any trip exists; contact is active at resolution time. The scenario deactivates driver D afterward, before trip end, as an external step not encoded in this fixture"
     }
   ]
 }

@@ -24,7 +24,7 @@ Status values:
 | O6 | `o-trip-lookup-gaps.spec.ts` | `O6` | covered | |
 | O7.1 | `o-guards.spec.ts` | `O7.1` | covered | Told apart from O7.2 by receipt order, not the event timestamp the doc's table names; see `PLAN/06-BLOCKERS.md` |
 | O7.2 | `o-guards.spec.ts` | `O7.2` | covered | Same receipt-order note as O7.1 |
-| O8 | `o-guards.spec.ts` | `O8`, `O8b` | covered | `O8`: contact deactivated after its row is written, blocked by the trip-end guard's live re-check. `O8b`: contact already disabled when the identification arrives, recorded as `flags.contact_is_active: false` |
+| O8 | `o-guards.spec.ts` | `O8`, `O8b` | covered | `O8`: contact deactivated after its row is written, blocked by the trip-end guard's live re-check. `O8b`: contact already disabled when the identification arrives, recorded as `flags.contact_is_active: false`. Both use driver D, which no other guards scenario uses, so the rest of the file can run in parallel with them |
 | O9 | `o-race.spec.ts` | `O9` | covered | The identification and trip-end fire together, repeated 5 times, as the doc's row describes |
 | O12 | `o-trip-lookup.spec.ts`, `o-trip-lookup-gaps.spec.ts` (O12c) | `O12a`, `O12b`, `O12c`, `O12d`, `O12e`, `O12f` | partial | One scenario per lookup outcome. `O12e` needs a heartbeat or virtual trip, which the emitter can't produce yet; see `PLAN/06-BLOCKERS.md` |
 | O13 | `o-guards.spec.ts` | `O13` | partial | "Already-transferred events are excluded" is asserted. The transfer half is only covered indirectly; see `PLAN/06-BLOCKERS.md` |
