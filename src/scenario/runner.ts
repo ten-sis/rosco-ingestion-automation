@@ -33,10 +33,12 @@ import { searchTrips, setTripAssignee } from '../api/trips';
 import { searchThresholdEvents, transferThresholdEvents } from '../api/thresholdEvents';
 import { setContactEnabled } from '../api/contacts';
 import { setAccountLicenceEnabled } from '../fixtures/provision';
+import { ensureTrackItIntegration, removeSuiteTrackItIntegration } from '../api/licences';
 import { buildDriverEventPayload } from '../emit/index';
 import type { GmsEventType } from '../fixture/types';
 import type { DriverEventType, DriverKey, Uuid } from '../types';
 import { FR_LICENSE_NAME } from '../constants';
+import { env } from '../env';
 import {
   beginExecution,
   capturePreExistingDriverEventRows,
@@ -152,11 +154,11 @@ function contactIdFor(sc: ScenarioContext, driver: DriverKey | null): Uuid | nul
   return driver === null ? null : sc.run.contacts[driver].id;
 }
 
-function licenceNameFor(licence: 'facialRecognition' | 'trackIt'): string {
-  if (licence === 'facialRecognition') return FR_LICENSE_NAME;
-  // VERIFY: ../constants exports no TrackIt licence name. Confirm the exact licence key string
-  // against the account_licenses enum before relying on this against a live account.
-  return 'TrackIt';
+function licenceNameFor(licence: 'facialRecognition'): string {
+  switch (licence) {
+    case 'facialRecognition':
+      return FR_LICENSE_NAME;
+  }
 }
 
 /** The kinds `deliverStep` actually sends over the wire (telemetry or an ident webhook), as
@@ -184,6 +186,31 @@ async function runOneExecution(scenario: Scenario, baseSc: ScenarioContext, rep:
     await runTimelineExecution(scenario, baseSc, rep);
   } finally {
     await reactivateDeactivatedContacts(scenario, baseSc);
+    await restoreAccountState(scenario, baseSc);
+  }
+}
+
+/**
+ * Puts back the account-scoped state a scenario changed, whether it passed or failed: the FR
+ * licence back on after a `setLicence` step (O18 turns it off mid-flight), and the suite's own
+ * `trackit` integration removed (O19). Otherwise the next scenario on the account, or the next
+ * run, starts from whatever the last one left behind.
+ */
+async function restoreAccountState(scenario: Scenario, sc: ScenarioContext): Promise<void> {
+  const attempt = async (what: string, body: () => Promise<void>): Promise<void> => {
+    try {
+      await body();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(`[runner] ${scenario.id}: could not ${what}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+  const toggled = new Set(scenario.timeline.flatMap((s) => (s.kind === 'setLicence' ? [s.licence] : [])));
+  for (const licence of toggled) {
+    await attempt(`re-enable licence ${licence}`, () => setAccountLicenceEnabled(sc.api, sc.run.accountId, licenceNameFor(licence), true));
+  }
+  if (scenario.preconditions?.integrations?.trackIt) {
+    await attempt('remove the suite\'s trackit integration', () => removeSuiteTrackItIntegration(sc.api, sc.run.accountId));
   }
 }
 
@@ -396,8 +423,17 @@ async function applyPreconditions(scenario: Scenario, sc: ScenarioContext): Prom
   }
   if (pre.licences) {
     for (const [key, enabled] of Object.entries(pre.licences)) {
-      await setAccountLicenceEnabled(sc.api, sc.run.accountId, licenceNameFor(key as 'facialRecognition' | 'trackIt'), enabled ?? false);
+      await setAccountLicenceEnabled(sc.api, sc.run.accountId, licenceNameFor(key as 'facialRecognition'), enabled ?? false);
     }
+  }
+  if (pre.integrations?.trackIt) {
+    if (sc.run.accountId === env.accountId) {
+      throw new Error(
+        `${scenario.id} needs a trackit integration, which the runner will not add to the shared ACCOUNT_ID ` +
+          '(every other fleet\'s trip ends would go through TrackIt). Set ACCOUNT_ID_FR_LICENCE.',
+      );
+    }
+    await ensureTrackItIntegration(sc.api, sc.run.accountId);
   }
   if (pre.secondaryAsset) {
     await sc.secondaryAsset();

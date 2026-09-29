@@ -3,9 +3,9 @@
  *
  * Both cases have fixtures under `fixtures/` and are compiled from them via
  * `fixturePlayback.ts`'s `expandFixtureToSteps`. `setLicence` has no fixture-format equivalent, so
- * O18 splices it in around the compiled fixture steps. This fleet's account also enables both
- * licences up front (see `Precondition.licences`), so `ASSET_ID_FR_LICENCE` / `ACCOUNT_ID_FR_LICENCE`
- * are the pins to use when iterating on this file alone against a real environment.
+ * O18 splices it in around the compiled fixture steps. Both run on `ACCOUNT_ID_FR_LICENCE`, an
+ * account no other fleet uses, since O18 turns the FR licence off and O19 adds a trackit
+ * integration. The runner puts both back when each scenario ends (`restoreAccountState`).
  */
 
 import type { Fixture } from '../fixture/types';
@@ -79,10 +79,12 @@ const o19Timeline: Step[] = insertAfterIndex(o19WithTripStarted, o19IgnitionOffI
 
 const O19: Scenario = {
   id: 'O19',
-  title: 'TrackIt exclusivity on an account holding both licences',
+  title: 'TrackIt exclusivity on an account with facial recognition and a TrackIt integration',
   priority: 'P1',
   tags: ['@live'],
-  preconditions: { licences: { facialRecognition: true, trackIt: true } },
+  // TrackIt is an account integration, not a licence (`TRACKIT_PARTNER` in constants.ts). The
+  // runner adds a placeholder one for the scenario and removes it afterward.
+  preconditions: { licences: { facialRecognition: true }, integrations: { trackIt: true } },
   timeline: o19Timeline,
   expectAfterStep: [
     { afterIndex: o19TripStartedIndex, expect: { trips: [{ tripRef: 'latest', assignee: 'unchanged' }] } },

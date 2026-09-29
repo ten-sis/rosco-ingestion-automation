@@ -1,7 +1,7 @@
 {
   "id": "O19",
-  "title": "TrackIt exclusivity on an account holding both licences",
-  "description": "The scenario provisions the account with both the facial-recognition licence and the TrackIt licence enabled (external precondition, not part of this fixture). One violation (HARDBRAKE at 100) occurs before the identification's claimed atSec (150), so there is something TrackIt's own trip-ended handling could otherwise disturb. Must prove: TripEventService.getAssigneeOverrides()'s early exit for facial-recognition-enabled accounts means TrackIt's trip-ended handling never runs, so the outcome converges cleanly on A with no contention. Must NOT change: the violation and both assignees must land on A exactly as they would with TrackIt absent; any deviation would mean the mirror check that suppresses TrackIt did not fire.",
+  "title": "TrackIt exclusivity on an account with facial recognition and a TrackIt integration",
+  "description": "The scenario runs on an account with the facial-recognition licence enabled and a trackit account integration (TrackIt is an integration, not a licence). The runner adds a placeholder integration for the scenario and removes it afterward (precondition, not part of this fixture). One violation (HARDBRAKE at 100) occurs before the identification's claimed atSec (150), so there is something TrackIt's own trip-ended handling could otherwise disturb. Must prove: TripEventService.getAssigneeOverrides()'s early exit for facial-recognition-enabled accounts means TrackIt's trip-ended handling never runs, so the outcome converges cleanly on A with no contention. Must NOT change: the violation and both assignees must land on A exactly as they would with TrackIt absent; any deviation would mean the mirror check that suppresses TrackIt did not fire.",
   "suite": "fr-licence",
   "delay": {
     "mode": "none"

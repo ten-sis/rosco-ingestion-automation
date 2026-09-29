@@ -138,8 +138,8 @@ const LICENCE_FLEET = 'fr-licence';
 
 /**
  * `playwright.config.ts` runs 6 workers by default, one asset per spec file, but a licence is scoped to the
- * ACCOUNT, not the asset. `fr-licence`'s O18 revokes the facial-recognition licence and O19 turns
- * on TrackIt for the whole account; while either toggle is applied, every other suite mutating
+ * ACCOUNT, not the asset. `fr-licence`'s O18 revokes the facial-recognition licence and O19 adds a
+ * trackit integration for the whole account; while either toggle is applied, every other suite mutating
  * that same account has its negative assertions pass for the wrong reason and its positive
  * assertions fail at random, depending on how the workers happen to interleave.
  *

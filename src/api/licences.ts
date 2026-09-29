@@ -3,7 +3,7 @@
  */
 import type { ApiClient } from './client';
 import type { Uuid } from '../types';
-import { ROSCO_PARTNER } from '../constants';
+import { ROSCO_PARTNER, TRACKIT_PARTNER } from '../constants';
 
 interface AccountIntegrationSearchResponse {
   results: Array<Record<string, unknown>>;
@@ -85,3 +85,51 @@ export async function accountHasLicence(api: ApiClient, accountId: Uuid, licence
 // account's `AccountLicense` row, `PATCH`/`POST` it). It lives there rather than here because it
 // was written against this module's own VERIFY notes on that chain; nothing in this file
 // duplicates it, and nothing here throws a stand-in for it.
+
+/**
+ * Marks an integration the suite created, so cleanup deletes only its own rows and never a real
+ * integration someone set up by hand.
+ */
+const CREATED_BY_SUITE = 'rosco-ingestion-automation';
+
+interface AccountIntegrationRow {
+  id: Uuid;
+  partner: string;
+  details?: Record<string, unknown> | null;
+}
+
+async function trackItIntegrations(api: ApiClient, accountId: Uuid): Promise<AccountIntegrationRow[]> {
+  const response = await api.get<{ results: AccountIntegrationRow[] }>(
+    `/v5/account-integrations/partner/${TRACKIT_PARTNER}`,
+    { query: { account_id: accountId } },
+  );
+  return response.results;
+}
+
+/**
+ * Makes sure the account has a `trackit` integration, creating one if it has none. hapi-server-trackit
+ * only needs the row to exist with an `api_key` to run its trip-ended handler, and backend-crud
+ * runs no validator for this partner (`account_integrations/v4/integrationValidation.js` covers
+ * gearflow, procore and wex only), so a placeholder key is accepted. The key is never valid
+ * against TrackIt itself, which is fine: O19 asserts that the handler stands down, not that it
+ * talks to TrackIt.
+ *
+ * `create()` (`account_integrations/v4/controller.js`) reads the account from the query, the body
+ * or the session, and the intra-service path passes its permission gate, so this works for any
+ * account.
+ */
+export async function ensureTrackItIntegration(api: ApiClient, accountId: Uuid): Promise<void> {
+  if ((await trackItIntegrations(api, accountId)).length > 0) return;
+  await api.post('/v5/account-integrations', {
+    partner: TRACKIT_PARTNER,
+    details: { api_key: 'frtest-placeholder', created_by: CREATED_BY_SUITE },
+  }, { query: { account_id: accountId } });
+}
+
+/** Deletes the `trackit` integrations `ensureTrackItIntegration` created. Leaves any other alone. */
+export async function removeSuiteTrackItIntegration(api: ApiClient, accountId: Uuid): Promise<void> {
+  for (const row of await trackItIntegrations(api, accountId)) {
+    if (row.details?.created_by !== CREATED_BY_SUITE) continue;
+    await api.delete(`/v5/account-integrations/${row.id}`, { query: { account_id: accountId } });
+  }
+}

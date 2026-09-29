@@ -36,8 +36,12 @@ export const ROSCO_PARTNER = 'rosco';
 
 /** The licence the operation flow gates on. */
 export const FR_LICENSE_NAME = 'TennaCAM Facial Recog';
-/** Mutually exclusive with the above, per the design doc. */
-export const TRACKIT_LICENSE_NAME = 'TrackIt';
+/**
+ * TrackIt is an account integration, not a licence: `account_integrations.partner = 'trackit'`.
+ * hapi-server-trackit's trip-ended handler (`TripEventService.getAssigneeOverrides`) and
+ * hapi-server-scorecards' backfill cron both key off that row. There is no TrackIt licence.
+ */
+export const TRACKIT_PARTNER = 'trackit';
 
 /** Rosco driver event names as they arrive on the webhook. Type 7 and Type 6 respectively. */
 export const IDENT_DRV = 'identDrv';

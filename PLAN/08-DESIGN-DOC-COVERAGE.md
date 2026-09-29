@@ -32,8 +32,8 @@ A run does not validate them yet, because of a harness timing bug (found 2026-09
 | O15 Type 6 then Type 7 | `O15` | Yes | |
 | O16 Redelivered webhook | `O16` | Indirectly | The doc's mechanism is the S3 object check publishing nothing. The suite can't see S3, so it asserts the outcome instead: one row and one assignee write. That passes whether the S3 check or the unique index did the work. |
 | O17 Multi-day trip | `O17` | Yes | The day-two identification is stamped ahead of its send time on purpose (README). |
-| O18 Licence revoked mid-flight | `O18` | Yes | Needs `ACCOUNT_ID_FR_LICENCE`, a separate account, and its `EXPECTED_ACCOUNT_NAME_FR_LICENCE`. |
-| O19 TrackIt exclusivity | `O19` | Yes | Same separate-account requirement as O18. |
+| O18 Licence revoked mid-flight | `O18` | Yes | Needs `ACCOUNT_ID_FR_LICENCE`, a separate account, and its `EXPECTED_ACCOUNT_NAME_FR_LICENCE`. On dv3 that is FrTest (`d72cd091-7e2d-4dcf-bbcf-79357e31c63d`). The FR licence is turned back on when the scenario ends. |
+| O19 TrackIt exclusivity | `O19` | Yes | Same separate-account requirement as O18. The runner adds a placeholder `trackit` integration for the scenario and removes it after. |
 | O20 Assignee publish lost | none | No | Manual. The audit is meant to catch it (`OUT-OF-SCOPE.md`). |
 | O21 First trip on an asset | `O21` | No | Struck in the doc for the initial release. The suite has it as `@phase2`. |
 | O22 Identification before trip exists | `O22` | Only with `ALLOW_PHASE2=1` | Phase 2 in the doc. |

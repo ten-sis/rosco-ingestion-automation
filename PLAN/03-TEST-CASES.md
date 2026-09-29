@@ -196,9 +196,9 @@ Expected end state: asset and trip stay A. B's webhook is accepted (200) but pro
 Negative control: `driverEventRowCount: 1`, asserting B genuinely left no trace rather than an inert one.
 What must ship first: the per-message license check in all three consumers.
 
-## O19 — TrackIt exclusivity (`o-live.spec.ts`... filed in `o-licence.spec.ts`)
+## O19 — TrackIt exclusivity (`o-licence.spec.ts`)
 
-Preconditions: both facial recognition and TrackIt licences enabled.
+Preconditions: facial recognition licence enabled, and a `trackit` account integration. TrackIt is an integration, not a licence. The runner adds a placeholder integration (its `api_key` is not a real TrackIt key) and deletes it when the scenario ends.
 Timeline: run a trip with one violation, identify A while it is open, end the trip.
 Expected end state: a clean, uncontested convergence on A, with no visible sign of TrackIt's own trip-ended handler having raced it.
 Negative control: the checkpoint right after ignition-on, before the identification, confirming a null baseline.

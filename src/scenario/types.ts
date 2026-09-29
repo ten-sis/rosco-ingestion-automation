@@ -102,7 +102,7 @@ export interface ContactStatusStep extends StepBase {
 
 export interface SetLicenceStep extends StepBase {
   kind: 'setLicence';
-  licence: 'facialRecognition' | 'trackIt';
+  licence: 'facialRecognition';
   enabled: boolean;
 }
 
@@ -207,7 +207,13 @@ export interface Precondition {
   /** Set the asset assignee before the timeline runs, so a "same driver" case starts correctly. */
   assetAssignee?: DriverKey | null;
   /** Licences the account must hold for this scenario to mean anything. */
-  licences?: { facialRecognition?: boolean; trackIt?: boolean };
+  licences?: { facialRecognition?: boolean };
+  /**
+   * Account integrations the scenario needs. `trackIt` creates a `trackit` integration if the
+   * account has none, and the runner deletes it again when the scenario ends. Refused on the
+   * shared ACCOUNT_ID, since every other fleet's trip ends would then go through TrackIt.
+   */
+  integrations?: { trackIt?: boolean };
   /** Provision a second asset up front rather than lazily. */
   secondaryAsset?: boolean;
   /**

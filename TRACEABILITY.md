@@ -32,8 +32,8 @@ Status values:
 | O15 | `o-live.spec.ts` | `O15` | covered | |
 | O16 | `o-live.spec.ts` | `O16` | covered | Asserts the outcome (one row, one assignee write). The S3 check the doc describes isn't visible from outside the cluster |
 | O17 | `o-live.spec.ts` | `O17` | covered | |
-| O18 | `o-licence.spec.ts` | `O18` | covered | Runs on `ACCOUNT_ID_FR_LICENCE` |
-| O19 | `o-licence.spec.ts` | `O19` | covered | Runs on `ACCOUNT_ID_FR_LICENCE` |
+| O18 | `o-licence.spec.ts` | `O18` | covered | Runs on `ACCOUNT_ID_FR_LICENCE` (FrTest on dv3) |
+| O19 | `o-licence.spec.ts` | `O19` | partial | Runs on `ACCOUNT_ID_FR_LICENCE` with a placeholder `trackit` integration. Asserts the outcome converges on A. Whether TrackIt's handler skipped early or just failed on the fake key isn't visible from outside |
 | O20 | — | — | manual | The audit detects a lost publish and the team reacts to it. See `OUT-OF-SCOPE.md` and `PLAN/06-BLOCKERS.md` |
 | O21 | `o-phase2.spec.ts` | `O21` | phase2 | Struck from the initial release in the doc |
 | O22 | `o-phase2.spec.ts` | `O22` | phase2 | |
