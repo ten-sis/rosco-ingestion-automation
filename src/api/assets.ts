@@ -36,9 +36,11 @@ interface AssetListResponse {
 
 /**
  * The category a fixture asset is created in. `POST /v5/assets` rejects a body without
- * `category_id` and `fleet` (422, observed live on dv3 2026-09-24). `ASSET_CATEGORY_ID` pins it;
- * otherwise this borrows the category of an existing asset on the account, which is guaranteed to
- * be one the account can use.
+ * `category_id` and `fleet` (422, observed live on dv3 2026-09-24). `ASSET_CATEGORY_ID` pins it.
+ * Otherwise this borrows the category of an existing asset on the account, which is guaranteed to
+ * be one the account can use. A new account with no assets yet (the `fr-licence` account) falls
+ * back to the account's own category list: `GET /v5/categories` is scoped to the calling account
+ * (`Categories.getDefaultScope`, `category/v5/category.controller.js`).
  */
 export async function resolveAssetCategoryId(api: ApiClient): Promise<Uuid> {
   const pinned = process.env.ASSET_CATEGORY_ID;
@@ -46,15 +48,24 @@ export async function resolveAssetCategoryId(api: ApiClient): Promise<Uuid> {
   const response = await api.get<AssetListResponse>('/v5/assets', {
     query: { limit: 1, fields: 'id,category_id' },
   });
-  const categoryId = response.results.find((a) => a.category_id)?.category_id;
-  if (!categoryId) {
+  const borrowed = response.results.find((a) => a.category_id)?.category_id;
+  if (borrowed) return borrowed;
+
+  const categories = await api.get<{ results: Array<{ id: Uuid; name: string }> }>('/v5/categories', {
+    query: { fields: 'id,name' },
+  });
+  const category = categories.results.find((c) => c.name === FIXTURE_CATEGORY_NAME) ?? categories.results[0];
+  if (!category) {
     throw new Error(
-      `resolveAssetCategoryId: account ${api.accountId} has no asset with a category to borrow. ` +
+      `resolveAssetCategoryId: account ${api.accountId} has no assets and no categories. ` +
         'Set ASSET_CATEGORY_ID in .env to a category this account can create assets in.',
     );
   }
-  return categoryId;
+  return category.id;
 }
+
+/** The fixture asset is a vehicle with a TennaCAM, so this is the natural category for it. */
+const FIXTURE_CATEGORY_NAME = 'Light Trucks / Vehicles';
 
 /** Reads an asset, including its contacts (assignee) include block. */
 export async function getAsset(api: ApiClient, id: Uuid): Promise<Asset> {
