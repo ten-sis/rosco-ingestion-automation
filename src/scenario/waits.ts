@@ -545,6 +545,17 @@ export async function assertServiceLog(exp: ServiceLogExpectation, sc: ScenarioC
 }
 
 /**
+ * `'all assigned'` when there is at least one violation and every one is on `contactId`. An
+ * empty list is its own answer: `[].every(...)` is true, which let every violation check pass on
+ * trips scorecards never scored.
+ */
+function describeAssignment(events: readonly ThresholdEvent[], contactId: Uuid): string {
+  if (events.length === 0) return 'no violations on the trip';
+  const off = events.filter((te) => te.contact_id !== contactId).length;
+  return off === 0 ? 'all assigned' : `${off} of ${events.length} on someone else`;
+}
+
+/**
  * Asserts one entry of `expectation.thresholdEvents`. Defect 4: `allAssignedTo` and
  * `stillAssignedTo` now poll under `TRIP_END_BUDGET_MS` (the trip-end consumer's re-assignment is
  * asynchronous and may still be in flight right after the timeline finishes) instead of reading
@@ -561,11 +572,11 @@ export async function assertThresholdEvent(exp: ThresholdEventExpectation, sc: S
       .poll(
         async () => {
           events = await searchThresholdEvents(sc.api, trip.id);
-          return events.every((te) => te.contact_id === contactId);
+          return describeAssignment(events, contactId);
         },
-        { timeout: TRIP_END_BUDGET_MS, intervals: [POLL_INTERVAL_MS] },
+        { timeout: TRIP_END_BUDGET_MS, intervals: [POLL_INTERVAL_MS], message: `violations on trip ${trip.id}` },
       )
-      .toBe(true);
+      .toBe('all assigned');
   }
 
   if (exp.stillAssignedTo) {
@@ -575,12 +586,11 @@ export async function assertThresholdEvent(exp: ThresholdEventExpectation, sc: S
       .poll(
         async () => {
           events = await searchThresholdEvents(sc.api, trip.id);
-          const subset = selectByWhich(events, which);
-          return subset.every((te) => te.contact_id === contactId);
+          return describeAssignment(selectByWhich(events, which), contactId);
         },
-        { timeout: TRIP_END_BUDGET_MS, intervals: [POLL_INTERVAL_MS] },
+        { timeout: TRIP_END_BUDGET_MS, intervals: [POLL_INTERVAL_MS], message: `violations (${which}) on trip ${trip.id}` },
       )
-      .toBe(true);
+      .toBe('all assigned');
   }
 
   if (exp.noTransfers) {
