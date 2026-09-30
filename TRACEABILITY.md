@@ -42,7 +42,7 @@ Status values:
 | O24 | `o-trip-start.spec.ts` | `O24` | partial | Asserts the outcome only. The adjacent-publish ordering can't be forced; see `PLAN/06-BLOCKERS.md` |
 | O26 | — | — | repo test | Same path as O16 now, since nothing checks S3 before publishing a driver event. Repo e2e test `a redelivered webhook` |
 | O27 | — | — | repo test | Repo unit test `generateDriverEventNaturalKey` (`rawEvents.test.ts`). Isolation is by salting the hash (`driver_events_<id>`) under `ros.`, not the doc's `rosdrv.` prefix |
-| O28 | — | — | repo test | Ingestion never checks S3 for driver events, so an outage can't drop one (repo unit test in `rawEvents.test.ts`, TS-43928). The recorder writes without checking, and a failed write is rejected to the error queue (`standardEvents.test.ts`, TS-43928) |
+| O28 | — | — | repo test | Ingestion never checks S3 for driver events, so an outage can't drop one (repo unit test in `rawEvents.test.ts`, TS-43928). The event recorder keeps its existence check, and `@tenna-llc/aws-sdk-wrapper`'s `S3.check` reads an outage as "found", so during an outage the S3 archive copy is skipped with no error. Known gap until the wrapper is fixed |
 
 The doc's test data also lists "two concurrent identifications for the same trip" (item 1), but no case row in its table uses it, and no scenario here does either.
 

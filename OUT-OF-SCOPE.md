@@ -16,7 +16,7 @@ Out of scope for this entire project, not only for this module, per the top-leve
 
 Ingestion-level cases: a redelivered webhook racing the recorder (O26), key type isolation in the S3 raw folder (O27), and the S3 check being unavailable (O28). Each needs control this suite doesn't have from outside the cluster, so they're covered by tests in hapi-server-rosco-ingestion-rmq instead (`TRACEABILITY.md` names them).
 
-The code also differs from the design here. The ingestion branch doesn't check S3 for driver events. It always publishes, and the unique index on `(account_id, event_id)` is the only dedup. So O26 is the same path as O16, and an S3 outage can't block or drop an identification. The event recorder writes driver events without checking, because `@tenna-llc/aws-sdk-wrapper`'s `S3.check` returns `true` on any error but `NotFound`, which would read an outage as "already stored".
+The code also differs from the design here. The ingestion branch doesn't check S3 for driver events. It always publishes, and the unique index on `(account_id, event_id)` is the only dedup. So O26 is the same path as O16, and an S3 outage can't block or drop an identification. The event recorder still checks S3 before archiving a driver event and skips a stored one. `@tenna-llc/aws-sdk-wrapper`'s `S3.check` returns `true` on any error but `NotFound`, so during an S3 outage the recorder reads every driver event as already stored and skips the archive write with no error. That's a known gap until the wrapper is fixed. It loses the archive copy only, never the identification.
 
 ## O20 — The live assignee publish is lost
 

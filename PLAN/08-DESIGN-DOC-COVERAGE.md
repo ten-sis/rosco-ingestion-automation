@@ -41,7 +41,7 @@ A run does not validate them yet, because of a harness timing bug (found 2026-09
 | O24 Trip-started inside trip-end path | `O24` | Partly | Same as O22. Outcome only, since the adjacent publish can't be forced directly (`PLAN/06-BLOCKERS.md`). |
 | O26 Redelivery before recorder writes | none | In the repo | Same path as O16 now. hapi-server-rosco-ingestion-rmq e2e `a redelivered webhook`. |
 | O27 Key type isolation | none | In the repo | hapi-server-rosco-ingestion-rmq unit test `generateDriverEventNaturalKey`. Salted hash, not a `rosdrv.` prefix. |
-| O28 S3 check unavailable | none | In the repo | No S3 check on driver events in ingestion, and the recorder writes without checking. hapi-server-rosco-ingestion-rmq unit tests. |
+| O28 S3 check unavailable | none | In the repo | No S3 check on driver events in ingestion (hapi-server-rosco-ingestion-rmq unit test). The recorder's archive copy is skipped during an outage until the wrapper is fixed. |
 
 ## Things that affect every run
 
