@@ -16,6 +16,13 @@
         "note": "trip starts"
       },
       {
+        "type": "HARDBRAKE",
+        "atSec": 30,
+        "lat": 40.70305,
+        "lon": -74.43015,
+        "note": "before A's identification, moved to A at trip end"
+      },
+      {
         "type": "ON_PERIODIC",
         "atSec": 58,
         "lat": 40.70312,
@@ -26,6 +33,13 @@
         "atSec": 116,
         "lat": 40.70327,
         "lon": -74.42973
+      },
+      {
+        "type": "HARDACCEL",
+        "atSec": 120,
+        "lat": 40.7033,
+        "lon": -74.42968,
+        "note": "after A's identification, before B's, so scored to A live"
       },
       {
         "type": "IGN_OFF",

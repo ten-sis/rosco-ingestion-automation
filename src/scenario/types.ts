@@ -79,6 +79,8 @@ export interface IdentStep extends StepBase {
   redeliverOf?: string;
   /** Label this step so a later step can reference it (`redeliverOf`). */
   as?: string;
+  /** Send a Type 7 whose `driver_guid` matches no contact. Needs `driver: null`. */
+  unknownDriver?: boolean;
 }
 
 /** A manual asset-assignee correction, the way a human makes one in the UI. */

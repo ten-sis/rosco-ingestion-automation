@@ -20,6 +20,7 @@ import o71Fixture from '../../fixtures/O7.1-manual-correction-receipt-order.json
 import o72Fixture from '../../fixtures/O7.2-identification-after-manual-change.json';
 import o8Fixture from '../../fixtures/O8-contact-deactivated-before-trip-end.json';
 import o8bFixture from '../../fixtures/O8b-contact-disabled-before-identification.json';
+import o8cFixture from '../../fixtures/O8c-identification-for-unknown-contact.json';
 import o13Fixture from '../../fixtures/O13-exclude-transferred-violations.json';
 import { expandFixtureToSteps, insertAfterIndex, lastIndexWhere } from './fixturePlayback';
 
@@ -313,4 +314,47 @@ const O13: Scenario = {
     "The doc: 'Events before the winner's receipt time with a different assignee are transferred. Already-transferred events are excluded' because `transferred_by_id IS NULL OR = the FR service user` is part of the selection, and a human's manual transfer sets `transferred_by_id` to the human, taking that event out of scope permanently. Compiled from fixtures/O13-exclude-transferred-violations.json (three violations, HARDBRAKE at 60, HARDACCEL at 120, HARDTURN at 180; the identification claims atSec 190 but is not delivered until atSec 300, after both the trip closes at 220 and the manual transfer) via fixturePlayback.ts; the `transferViolations` step is spliced in right after the trip-end settle, before the delayed identification, since the fixture format has no field for a manual transfer. `stillAssignedTo` is the doc-mandated proof of the exclusion half of this case; the required `'unchanged'` negative control (resolved against the pre-timeline snapshot) is the checkpoint right after ignition-on, before anything in this scenario runs. // GAP: `ThresholdEventExpectation` has no way to assert that a specific non-'all' subset (here, the two events that are NOT the manually-transferred one) were reassigned to the winner while a named subset stays untouched; `allAssignedTo` only asserts that every event in the trip names the same driver, which is false in this scenario by design. This scenario can therefore only assert the exclusion half of O13 directly; the reassignment half is covered indirectly by the asset/trip assignee assertions above. Reported in the final summary rather than by editing scenario/types.ts.",
 };
 
-export const GUARDS_SCENARIOS: readonly Scenario[] = [O7_1, O7_2, O8, O8b, O13];
+// ---------------------------------------------------------------------------
+// O8c — compiled from fixtures/O8c-identification-for-unknown-contact.json
+// ---------------------------------------------------------------------------
+
+const o8cBase = expandFixtureToSteps(o8cFixture as Fixture);
+const o8cIdentIndex = lastIndexWhere(o8cBase, (s) => s.kind === 'ident');
+const o8cWithIdentSettle = insertAfterIndex(o8cBase, o8cIdentIndex, {
+  kind: 'settle',
+  atSec: 71,
+  until: 'identificationPersisted',
+  budget: 'LIVE_BUDGET_MS',
+});
+const o8cIdentSettleIndex = o8cIdentIndex + 1;
+const o8cTimeline: Step[] = [...o8cWithIdentSettle, { kind: 'settle', atSec: 151, until: 'tripEnded', budget: 'TRIP_END_BUDGET_MS' }];
+
+const O8c: Scenario = {
+  id: 'O8c',
+  title: 'Identification whose driver_guid matches no contact',
+  priority: 'P0',
+  tags: [],
+  preconditions: { assetAssignee: 'B' },
+  timeline: o8cTimeline,
+  expectAfterStep: [
+    {
+      afterIndex: o8cIdentSettleIndex,
+      expect: {
+        assetAssignee: { value: 'unchanged' },
+        trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
+        // An unresolved guid is persisted as unidentified, so there's no trip lookup at insert.
+        driverEvents: [{ driver: null, type: 'identDrv', isAssigneeSource: null, tripLink: { state: 'unlinked' } }],
+      },
+    },
+  ],
+  expect: {
+    assetAssignee: { value: 'unchanged' },
+    trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
+    driverEvents: [{ driver: null, type: 'identDrv', count: 1, isAssigneeSource: null }],
+    thresholdEvents: [{ tripRef: 'latest', noTransfers: true }],
+  },
+  rationale:
+    "QA T16521553: a Type 7 whose driver_guid is no Tenna contact. The identification consumer's `resolveContact` finds no contact, so the row is persisted as unidentified (contact_id null), is never eligible, and nothing is written. The HARDBRAKE at atSec 30 makes `noTransfers` a live check. Not a row in the doc's table; it sits next to O8 because it's the same eligibility rule. The guid is random per execution (`unknownDriver` on the identification).",
+};
+
+export const GUARDS_SCENARIOS: readonly Scenario[] = [O7_1, O7_2, O8, O8b, O8c, O13];

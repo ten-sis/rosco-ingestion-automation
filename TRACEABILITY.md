@@ -20,19 +20,19 @@ Status values:
 | O3.3 | `o-delayed.spec.ts` | `O3.3` | partial | Waits 6 minutes for the backfill cron, so only its 5-minute run is covered, not the 2-hour one |
 | O3.4 | `o-delayed.spec.ts` | `O3.4` | covered | |
 | O3.5 | `o-delayed.spec.ts` | `O3.5` | covered | |
-| O4 | `o-live.spec.ts` | `O4` | covered | |
+| O4 | `o-live.spec.ts` | `O4`, `O4b` | covered | `O4b` (QA T16521566): 50 identifications of the same driver on one trip. 50 rows, one assignee move, the earlier violation ends on A |
 | O5 | `o-trip-lookup.spec.ts` | `O5` | partial | "No assignee change" is asserted. The doc's "monitor the diff to the next trip start" is an observation; see `PLAN/06-BLOCKERS.md` |
 | O6 | `o-trip-lookup-gaps.spec.ts` | `O6` | covered | Asserts the agreed TS-44193 behavior, not the doc's original "No asset write": latest write wins, so the late identification writes its trip and the asset when it's the latest change. Trip 2 keeps its assignee |
 | O7.1 | `o-guards.spec.ts` | `O7.1` | covered | Told apart from O7.2 by receipt order, not the event timestamp the doc's table names; see `PLAN/06-BLOCKERS.md` |
 | O7.2 | `o-guards.spec.ts` | `O7.2` | covered | Same receipt-order note as O7.1 |
-| O8 | `o-guards.spec.ts` | `O8`, `O8b` | covered | `O8`: contact deactivated after its row is written, blocked by the trip-end guard's live re-check. `O8b`: contact already disabled when the identification arrives, recorded as `flags.contact_is_active: false`. Both use driver D, which no other guards scenario uses, so the rest of the file can run in parallel with them |
+| O8 | `o-guards.spec.ts` | `O8`, `O8b`, `O8c` | covered | `O8`: contact deactivated after its row is written, blocked by the trip-end guard's live re-check. `O8b`: contact already disabled when the identification arrives, recorded as `flags.contact_is_active: false`. Both use driver D, which no other guards scenario uses, so the rest of the file can run in parallel with them. `O8c` (QA T16521553): a `driver_guid` that matches no contact is persisted as unidentified and writes nothing |
 | O9 | `o-race.spec.ts` | `O9` | covered | The identification and trip-end fire together, repeated 5 times, as the doc's row describes |
 | O12 | `o-trip-lookup.spec.ts`, `o-trip-lookup-gaps.spec.ts` (O12c) | `O12a`, `O12b`, `O12c`, `O12d`, `O12e`, `O12f` | partial | One scenario per lookup outcome. `O12e` needs a heartbeat or virtual trip, which the emitter can't produce, so it's `fixme` here and covered by the repo's e2e test `an identification covered only by a heartbeat or virtual trip` (TS-43928); see `PLAN/06-BLOCKERS.md` |
 | O13 | `o-guards.spec.ts` | `O13` | partial | "Already-transferred events are excluded" is asserted. The transfer half is only covered indirectly; see `PLAN/06-BLOCKERS.md` |
 | O14 | `o-trip-lookup.spec.ts` | `O14` | partial | Asserts trip end recovering the row (linked, claim, asset A), per the doc's trip-end section and the consumer. The doc's O14 row says "no assignee change", which contradicts that section; see `PLAN/06-BLOCKERS.md`. "Monitor clock drift" is an observation |
-| O15 | `o-live.spec.ts` | `O15` | covered | |
+| O15 | `o-live.spec.ts` | `O15`, `O15b` | covered | `O15b` (QA T16521587): the reverse order, a late Type 6 stamped before an earlier-delivered Type 7, moves nothing |
 | O16 | `o-live.spec.ts` | `O16` | covered | Asserts the outcome (one row, one assignee write). The code has no S3 check for driver events: ingestion publishes every delivery and the unique index on `(account_id, event_id)` collapses a redelivery |
-| O17 | `o-live.spec.ts` | `O17` | covered | |
+| O17 | `o-live.spec.ts` | `O17` | covered | Also asserts both violations, one before A's identification and one after, end on A (QA T16521568) |
 | O18 | `o-licence.spec.ts` | `O18` | covered | Runs on `ACCOUNT_ID_FR_LICENCE` (FrTest on dv3) |
 | O19 | `o-licence.spec.ts` | `O19` | covered | Runs on `ACCOUNT_ID_FR_LICENCE` with a placeholder `trackit` integration. Asserts the outcome converges on A, and that trackit logged its FR skip for the account (`kubectl logs`, needs hapi-server-trackit `v1.2.0-build.3` or later) |
 | O20 | — | — | repo test | Repo unit tests (`driverEvent.test.ts`, `assetTripStarted.test.ts`) ack on a failed publish. The e2e test `an assignee publish that is lost` (TS-43928) shows trip end moves only violations up to the trip driver write, and leaves later ones to the backfill cron. The audit half stays manual. See `OUT-OF-SCOPE.md` |
@@ -46,4 +46,4 @@ Status values:
 
 The doc's test data also lists "two concurrent identifications for the same trip" (item 1), but no case row in its table uses it, and no scenario here does either.
 
-Scenario count per group: `live` 6, `tripLookup` 7, `tripLookupGaps` 2, `delayed` 5, `guards` 5, `race` 1, `licence` 2, `tripStart` 3, `firstTrip` 1. Total 32 scenarios covering 26 of the doc's 30 rows (O12 has 6 sub-scenarios). 25 of those rows run by default, and O21 needs `ALLOW_FRESH_ASSETS=1`. O1 runs simulated only. O12e, O20, O26, O27 and O28 are covered by repo tests in hapi-server-rosco-ingestion-rmq instead (O20's audit half stays manual).
+Scenario count per group: `live` 8, `tripLookup` 7, `tripLookupGaps` 2, `delayed` 5, `guards` 6, `race` 1, `licence` 2, `tripStart` 3, `firstTrip` 1. Total 35 scenarios covering 26 of the doc's 30 rows (O12 has 6 sub-scenarios). 25 of those rows run by default, and O21 needs `ALLOW_FRESH_ASSETS=1`. O1 runs simulated only. O12e, O20, O26, O27 and O28 are covered by repo tests in hapi-server-rosco-ingestion-rmq instead (O20's audit half stays manual).

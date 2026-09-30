@@ -1,0 +1,55 @@
+{
+  "id": "O15b",
+  "title": "A late Type 6 stamped before an earlier-delivered Type 7",
+  "description": "QA T16521587, the reverse of O15. A is identified at 60 and wins the trip. A Type 6 claiming atSec 50, before A's identification, is delivered late at 100. Must prove: A stays the trip's assignee source and the asset and trip stay on A. Must NOT change: nothing moves back when the Type 6 arrives.",
+  "suite": "fr-live",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip starts"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945,
+        "note": "trip ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 60,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "wins the trip"
+    },
+    {
+      "atSec": 50,
+      "deliverAtSec": 100,
+      "driver": null,
+      "type": "unDrv",
+      "note": "stamped before A, delivered after"
+    }
+  ]
+}

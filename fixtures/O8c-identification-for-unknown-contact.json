@@ -1,0 +1,56 @@
+{
+  "id": "O8c",
+  "title": "Identification whose driver_guid matches no contact",
+  "description": "QA T16521553. A Type 7 names a driver_guid that is no Tenna contact on the account. HARDBRAKE at 30, identification at 70, trip end at 150. Must prove: the row persists as unidentified (no contact) and never becomes the assignee source. Must NOT change: the asset assignee, the trip assignee, or the violation's attribution.",
+  "suite": "fr-guards",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip starts"
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 30,
+        "lat": 40.70305,
+        "lon": -74.43015,
+        "note": "violation that must not move"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945,
+        "note": "trip ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 70,
+      "driver": null,
+      "type": "identDrv",
+      "unknownDriver": true,
+      "note": "a guid that matches no contact"
+    }
+  ]
+}

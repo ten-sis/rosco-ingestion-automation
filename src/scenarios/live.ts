@@ -19,6 +19,8 @@ import o4Fixture from '../../fixtures/O4-second-identification-same-trip.json';
 import o15Fixture from '../../fixtures/O15-type6-then-type7.json';
 import o16Fixture from '../../fixtures/O16-redelivered-webhook.json';
 import o17Fixture from '../../fixtures/O17-multi-day-trip-compressed.json';
+import o15bFixture from '../../fixtures/O15b-late-type6-after-type7.json';
+import o4bFixture from '../../fixtures/O4b-burst-of-identifications-same-trip.json';
 import { expandFixtureToSteps, insertAfterIndex, lastIndexWhere } from './fixturePlayback';
 
 // ---------------------------------------------------------------------------
@@ -310,12 +312,15 @@ const o17WithAssigneeSettle = insertAfterIndex(o17Base, o17IdentAIndex, {
 });
 const o17AssigneeSettleIndex = o17IdentAIndex + 1;
 const o17IdentBIndex = lastIndexWhere(o17WithAssigneeSettle, (s) => s.kind === 'ident' && s.driver === 'B');
-const o17Timeline: Step[] = insertAfterIndex(o17WithAssigneeSettle, o17IdentBIndex, {
-  kind: 'settle',
-  atSec: 93601,
-  until: 'identificationPersisted',
-  budget: 'LIVE_BUDGET_MS',
-});
+const o17Timeline: Step[] = [
+  ...insertAfterIndex(o17WithAssigneeSettle, o17IdentBIndex, {
+    kind: 'settle',
+    atSec: 93601,
+    until: 'identificationPersisted',
+    budget: 'LIVE_BUDGET_MS',
+  }),
+  { kind: 'settle', atSec: 171, until: 'tripEnded', budget: 'TRIP_END_BUDGET_MS' },
+];
 
 const O17: Scenario = {
   id: 'O17',
@@ -338,9 +343,77 @@ const O17: Scenario = {
       // A non-winning row keeps is_assignee_source null: only the winner is ever set, to true.
       { driver: 'B', count: 1, isAssigneeSource: null },
     ],
+    // The HARDBRAKE before A's identification moves to A at trip end. The HARDACCEL after it is
+    // scored to A live. Neither goes to B.
+    thresholdEvents: [{ tripRef: 'latest', allAssignedTo: 'A' }],
   },
   rationale:
     "PM's own rule, quoted in the doc: 'Multi-day trips are not split. The assignee moves once per trip, and a second driver identified later in the same trip is discarded, because assigning them would attribute the first leg's events to the second driver.' The design doc's own O17 tests this over a multi-day trip; `MAX_TRIP_SECONDS` (`src/constants.ts`) caps every trip this suite generates at 300 seconds, so the day-boundary framing itself is not reproducible by live emission. Compiled from fixtures/O17-multi-day-trip-compressed.json via fixturePlayback.ts: the fixture keeps the trip itself compressed (IGN_OFF at atSec 170) and stretches only B's claimed timestamp (atSec 93600, standing in for the real ~26-hour-later moment) while delivering it at deliverAtSec 160, before the compressed trip's own IGN_OFF, so the trip is genuinely still open when B's identification arrives — matching the real multi-day case, where the trip has not ended either. This proves the discard happens for a second identification arriving while the trip is still open, via the plain trip-driver write guard (null-or-equal; the trip's assignee is already A, non-null and not B), not via the closed-trip discard path O3.4/O3.5 and O6/O12b exercise for a late arrival after trip end. See PLAN/06-BLOCKERS.md for why the true multi-day claim (a trip literally open for ~30 hours) is out of this suite's reach either way. The checkpoint right after ignition-on, before A's identification, asserts `'unchanged'` (the pre-timeline `null` baseline); the checkpoint right after A's win, and the identical literal 'A' repeated in the final assertion, show B's later identification did not move it.",
 };
 
-export const LIVE_SCENARIOS: readonly Scenario[] = [O1, O2, O4, O15, O16, O17];
+// ---------------------------------------------------------------------------
+// O15b — compiled from fixtures/O15b-late-type6-after-type7.json
+// ---------------------------------------------------------------------------
+
+const o15bBase = expandFixtureToSteps(o15bFixture as Fixture);
+const o15bIdentAIndex = lastIndexWhere(o15bBase, (s) => s.kind === 'ident' && s.driver === 'A');
+const o15bWithAssigneeSettle = insertAfterIndex(o15bBase, o15bIdentAIndex, {
+  kind: 'settle',
+  atSec: 61,
+  until: 'assigneeWritten',
+  budget: 'LIVE_BUDGET_MS',
+});
+const o15bAssigneeSettleIndex = o15bIdentAIndex + 1;
+const o15bTimeline: Step[] = [...o15bWithAssigneeSettle, { kind: 'settle', atSec: 151, until: 'tripEnded', budget: 'TRIP_END_BUDGET_MS' }];
+
+const O15b: Scenario = {
+  id: 'O15b',
+  title: 'A late Type 6 stamped before an earlier-delivered Type 7',
+  priority: 'P0',
+  tags: ['@live'],
+  preconditions: { assetAssignee: 'D' },
+  timeline: o15bTimeline,
+  expectAfterStep: [
+    { afterIndex: o15bAssigneeSettleIndex, expect: { assetAssignee: { value: 'A' }, trips: [{ tripRef: 'latest', assignee: 'A' }] } },
+  ],
+  expect: {
+    assetAssignee: { value: 'A' },
+    trips: [{ tripRef: 'latest', assignee: 'A' }],
+    driverEvents: [
+      { driver: 'A', type: 'identDrv', count: 1, isAssigneeSource: true, tripLink: { state: 'linked', tripRef: 'latest' } },
+      { driver: null, type: 'unDrv', count: 1, isAssigneeSource: null },
+    ],
+  },
+  rationale:
+    "QA T16521587, the reverse order of O15. A's Type 7 is delivered first and wins the trip. A Type 6 stamped ten seconds before it arrives forty seconds later. An unDrv carries no contact, so it's never eligible for the claim and can't take the trip back, whatever its timestamp. The checkpoint after A's win and the identical final 'A' show the late Type 6 moved nothing.",
+};
+
+// ---------------------------------------------------------------------------
+// O4b — compiled from fixtures/O4b-burst-of-identifications-same-trip.json
+// ---------------------------------------------------------------------------
+
+// No settle inside the burst: it would hold back the rest of the identifications.
+const o4bBase = expandFixtureToSteps(o4bFixture as Fixture);
+const o4bIgnitionOnIndex = lastIndexWhere(o4bBase, (s) => s.kind === 'ignitionOn');
+const o4bTimeline: Step[] = [...o4bBase, { kind: 'settle', atSec: 151, until: 'tripEnded', budget: 'TRIP_END_BUDGET_MS' }];
+
+const O4b: Scenario = {
+  id: 'O4b',
+  title: 'A burst of identifications of the same driver on one trip',
+  priority: 'P1',
+  tags: ['@live'],
+  preconditions: { assetAssignee: 'D' },
+  timeline: o4bTimeline,
+  expectAfterStep: [{ afterIndex: o4bIgnitionOnIndex, expect: { assetAssignee: { value: 'unchanged' } } }],
+  expect: {
+    assetAssignee: { value: 'A' },
+    trips: [{ tripRef: 'latest', assignee: 'A' }],
+    // Each identification has its own timestamp, so its own event_id and its own row.
+    driverEvents: [{ driver: 'A', type: 'identDrv', count: 50 }],
+    thresholdEvents: [{ tripRef: 'latest', allAssignedTo: 'A' }],
+  },
+  rationale:
+    "QA T16521566: 50 Type 7s for the same driver on one open trip, two seconds apart. Every one is persisted (50 rows), only the first can win the trip, and the asset and trip move to A once. The HARDBRAKE at atSec 5, before the first identification, moves to A at trip end. The QA case also asks about database load and lock contention, which is a metrics check outside this suite.",
+};
+
+export const LIVE_SCENARIOS: readonly Scenario[] = [O1, O2, O4, O4b, O15, O15b, O16, O17];

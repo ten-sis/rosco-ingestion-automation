@@ -28,6 +28,7 @@
  * the wrong reason.
  */
 
+import { randomUUID } from 'crypto';
 import { getAssetAssignee, setAssetAssignee } from '../api/assets';
 import { searchTrips, setTripAssignee } from '../api/trips';
 import { searchThresholdEvents, transferThresholdEvents } from '../api/thresholdEvents';
@@ -653,15 +654,15 @@ async function deliverIdentStep(sc: ScenarioContext, step: IdentStep): Promise<v
   }
 
   const asset = await resolveAsset(sc, step.assetRef);
-  const type: DriverEventType = step.type ?? (step.driver === null ? 'unDrv' : 'identDrv');
+  const type: DriverEventType = step.unknownDriver ? 'identDrv' : (step.type ?? (step.driver === null ? 'unDrv' : 'identDrv'));
   const contact = step.driver === null ? undefined : sc.run.contacts[step.driver];
   const payload = {
     ...buildDriverEventPayload({
       vehicleId: asset.vehicleId,
       timestampIso: logicalTime(sc, step.atSec),
-      driverGuid: contact?.id ?? null,
-      driverFirst: contact?.first_name,
-      driverLast: contact?.last_name,
+      driverGuid: step.unknownDriver ? randomUUID() : (contact?.id ?? null),
+      driverFirst: step.unknownDriver ? 'Unknown' : contact?.first_name,
+      driverLast: step.unknownDriver ? 'Driver' : contact?.last_name,
       lat: DEFAULT_LAT,
       lon: DEFAULT_LON,
     }),

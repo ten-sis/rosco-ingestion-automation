@@ -72,6 +72,8 @@ export interface FixtureIdentification {
   as?: string;
   /** Re-send the labelled identification unchanged, for the redelivery case. */
   redeliverOf?: string;
+  /** A Type 7 whose `driver_guid` matches no contact. Needs `driver: null` and `type: 'identDrv'`. */
+  unknownDriver?: boolean;
   note?: string;
 }
 

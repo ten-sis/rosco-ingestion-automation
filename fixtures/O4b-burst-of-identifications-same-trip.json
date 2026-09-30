@@ -1,0 +1,299 @@
+{
+  "id": "O4b",
+  "title": "A burst of identifications of the same driver on one trip",
+  "description": "QA T16521566. 50 Type 7s for A, two seconds apart from atSec 40, once the trip exists, on one open trip. HARDBRAKE at 5, before the first identification. Must prove: every identification is persisted as its own row, the asset and trip move to A, and the violation ends on A. Must NOT change: nothing but the first identification writes an assignee.",
+  "suite": "fr-live",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip starts"
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 5,
+        "lat": 40.70305,
+        "lon": -74.43015,
+        "note": "before the first identification, moved to A at trip end"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945,
+        "note": "trip ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 40,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 42,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 44,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 46,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 48,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 50,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 52,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 54,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 56,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 58,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 60,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 62,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 64,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 66,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 68,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 70,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 72,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 74,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 76,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 78,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 80,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 82,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 84,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 86,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 88,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 90,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 92,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 94,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 96,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 98,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 100,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 102,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 104,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 106,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 108,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 110,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 112,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 114,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 116,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 118,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 120,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 122,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 124,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 126,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 128,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 130,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 132,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 134,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 136,
+      "driver": "A",
+      "type": "identDrv"
+    },
+    {
+      "atSec": 138,
+      "driver": "A",
+      "type": "identDrv"
+    }
+  ]
+}
