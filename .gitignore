@@ -7,3 +7,4 @@ blob-report/
 .runs/
 *.log
 .claude/worktrees/
+.idea/
