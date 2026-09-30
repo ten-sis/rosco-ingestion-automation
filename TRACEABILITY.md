@@ -21,7 +21,7 @@ Status values:
 | O3.5 | `o-delayed.spec.ts` | `O3.5` | covered | |
 | O4 | `o-live.spec.ts` | `O4` | covered | |
 | O5 | `o-trip-lookup.spec.ts` | `O5` | partial | "No assignee change" is asserted. The doc's "monitor the diff to the next trip start" is an observation; see `PLAN/06-BLOCKERS.md` |
-| O6 | `o-trip-lookup-gaps.spec.ts` | `O6` | covered | Asserts the agreed TS-44193 behavior, not the doc's original "No asset write": the late identification writes its trip and the asset when it's the latest change, flagged `superseded_trip_asset_write`. Trip 2 keeps its assignee |
+| O6 | `o-trip-lookup-gaps.spec.ts` | `O6` | covered | Asserts the agreed TS-44193 behavior, not the doc's original "No asset write": latest write wins, so the late identification writes its trip and the asset when it's the latest change. Trip 2 keeps its assignee |
 | O7.1 | `o-guards.spec.ts` | `O7.1` | covered | Told apart from O7.2 by receipt order, not the event timestamp the doc's table names; see `PLAN/06-BLOCKERS.md` |
 | O7.2 | `o-guards.spec.ts` | `O7.2` | covered | Same receipt-order note as O7.1 |
 | O8 | `o-guards.spec.ts` | `O8`, `O8b` | covered | `O8`: contact deactivated after its row is written, blocked by the trip-end guard's live re-check. `O8b`: contact already disabled when the identification arrives, recorded as `flags.contact_is_active: false`. Both use driver D, which no other guards scenario uses, so the rest of the file can run in parallel with them |
