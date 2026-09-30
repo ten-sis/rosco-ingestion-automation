@@ -7,7 +7,7 @@ Status values:
 * `covered` — a scenario exists and asserts the case.
 * `partial` — a scenario exists, but part of the doc's expectation isn't asserted or can't be forced. The note says which part.
 * `manual` — not automatable.
-* `phase2` — built, tagged `@phase2`, and excluded from the default run.
+* `opt-in` — built, and runs only with `ALLOW_FRESH_ASSETS=1`, because it creates a new asset every run.
 * `not covered` — no scenario.
 
 | O-case | Spec file | Scenario id(s) | Status | Note |
@@ -35,14 +35,14 @@ Status values:
 | O18 | `o-licence.spec.ts` | `O18` | covered | Runs on `ACCOUNT_ID_FR_LICENCE` (FrTest on dv3) |
 | O19 | `o-licence.spec.ts` | `O19` | covered | Runs on `ACCOUNT_ID_FR_LICENCE` with a placeholder `trackit` integration. Asserts the outcome converges on A, and that trackit logged its FR skip for the account (`kubectl logs`, needs hapi-server-trackit `v1.2.0-build.3` or later) |
 | O20 | — | — | manual | The audit detects a lost publish and the team reacts to it. See `OUT-OF-SCOPE.md` and `PLAN/06-BLOCKERS.md` |
-| O21 | `o-phase2.spec.ts` | `O21` | phase2 | Struck from the initial release in the doc |
-| O22 | `o-phase2.spec.ts` | `O22` | phase2 | |
-| O23 | `o-phase2.spec.ts` | `O23` | phase2 | |
-| O24 | `o-phase2.spec.ts` | `O24` | phase2 | Adjacent-publish ordering not directly forceable; see `PLAN/06-BLOCKERS.md` |
+| O21 | `o-first-trip.spec.ts` | `O21` | opt-in | Struck from the initial release in the doc, but the trip-end consumer's pre-start tolerance shipped. Needs an asset's very first trip, so it creates a new asset every run and is tagged `@fresh-asset` |
+| O22 | `o-trip-start.spec.ts` | `O22` | covered | The trip-start consumer shipped in the initial release (TS-43907), though the doc still marks O22 to O24 phase 2 only |
+| O23 | `o-trip-start.spec.ts` | `O23` | covered | |
+| O24 | `o-trip-start.spec.ts` | `O24` | partial | Asserts the outcome only. The adjacent-publish ordering can't be forced; see `PLAN/06-BLOCKERS.md` |
 | O26 | — | — | not covered | Ingestion-level redelivery race before the recorder writes. See `OUT-OF-SCOPE.md` |
 | O27 | — | — | not covered | Key type isolation. Needs seeding the S3 raw folder. See `OUT-OF-SCOPE.md` |
 | O28 | — | — | not covered | S3 check unavailable. Needs an S3 outage. See `OUT-OF-SCOPE.md` |
 
 The doc's test data also lists "two concurrent identifications for the same trip" (item 1), but no case row in its table uses it, and no scenario here does either.
 
-Scenario count per group: `live` 6, `tripLookup` 7, `tripLookupGaps` 2, `delayed` 5, `guards` 5, `race` 1, `licence` 2, `phase2` 4. Total 32 scenarios covering 26 of the doc's 30 rows (O12 has 6 sub-scenarios). 22 of those rows run by default, and the 4 `phase2` rows need `ALLOW_PHASE2=1`. O1 runs simulated only. O20 is `manual`, and O26 to O28 are `not covered`.
+Scenario count per group: `live` 6, `tripLookup` 7, `tripLookupGaps` 2, `delayed` 5, `guards` 5, `race` 1, `licence` 2, `tripStart` 3, `firstTrip` 1. Total 32 scenarios covering 26 of the doc's 30 rows (O12 has 6 sub-scenarios). 25 of those rows run by default, and O21 needs `ALLOW_FRESH_ASSETS=1`. O1 runs simulated only. O20 is `manual`, and O26 to O28 are `not covered`.

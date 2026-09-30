@@ -4,7 +4,7 @@ Checked 2026-09-28 against the "Facial Recognition Operation cases" table in [Ro
 
 ## Short answer
 
-The feature is deployed on dv3, so a run exercises the real pipeline. 22 of the doc's 30 rows run by default (O1 simulated), with the caveats below. The other 8 are manual, phase 2, struck from the initial release, or not covered at all.
+The feature is deployed on dv3, so a run exercises the real pipeline. 25 of the doc's 30 rows run by default (O1 simulated), with the caveats below. O21 is opt-in, and the other 4 are manual or not covered at all.
 
 A run does not validate them yet, because of a harness timing bug (found 2026-09-28). The runner backdates every event timestamp (`computeT0` in `src/scenario/runner.ts`), but sets each scenario's assignee precondition at real wall-clock time. The consumer skips the asset write whenever the standing assignment is newer than the identification's timestamp (`AssigneeWriter.writeAssetAssignee` in `hapi-server-rosco-ingestion-rmq`), which is the doc's own O7 rule. So every scenario with an assignee precondition sees the asset write skipped, correctly. Until that's fixed, a failing asset-assignee assertion says nothing about the feature.
 
@@ -35,10 +35,10 @@ A run does not validate them yet, because of a harness timing bug (found 2026-09
 | O18 Licence revoked mid-flight | `O18` | Yes | Needs `ACCOUNT_ID_FR_LICENCE`, a separate account, and its `EXPECTED_ACCOUNT_NAME_FR_LICENCE`. On dv3 that is FrTest (`d72cd091-7e2d-4dcf-bbcf-79357e31c63d`). The FR licence is turned back on when the scenario ends. |
 | O19 TrackIt exclusivity | `O19` | Yes | Same separate-account requirement as O18. The runner adds a placeholder `trackit` integration for the scenario and removes it after. Asserts trackit's `Skipping TrackIt assignee override` log line for the account, read with `kubectl logs`. |
 | O20 Assignee publish lost | none | No | Manual. The audit is meant to catch it (`OUT-OF-SCOPE.md`). |
-| O21 First trip on an asset | `O21` | No | Struck in the doc for the initial release. The suite has it as `@phase2`. |
-| O22 Identification before trip exists | `O22` | Only with `ALLOW_PHASE2=1` | Phase 2 in the doc. |
-| O23 Trip-start and trip-end both run | `O23` | Only with `ALLOW_PHASE2=1` | Phase 2 in the doc. |
-| O24 Trip-started inside trip-end path | `O24` | Only with `ALLOW_PHASE2=1` | Phase 2. The adjacent publish can't be forced directly (`PLAN/06-BLOCKERS.md`). |
+| O21 First trip on an asset | `O21` | Only with `ALLOW_FRESH_ASSETS=1` | Struck in the doc for the initial release, but the trip-end pre-start tolerance shipped. Creates a new asset every run, so it's `@fresh-asset`. |
+| O22 Identification before trip exists | `O22` | Yes | The doc says phase 2 only, but the trip-start consumer shipped in the initial release. |
+| O23 Trip-start and trip-end both run | `O23` | Yes | Same as O22. |
+| O24 Trip-started inside trip-end path | `O24` | Partly | Same as O22. Outcome only, since the adjacent publish can't be forced directly (`PLAN/06-BLOCKERS.md`). |
 | O26 Redelivery before recorder writes | none | No | Ingestion-level race. Not in this suite. |
 | O27 Key type isolation | none | No | Needs seeding the S3 raw folder. Not in this suite. |
 | O28 S3 check unavailable | none | No | Needs an S3 outage. Not in this suite. |

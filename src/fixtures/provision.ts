@@ -9,7 +9,7 @@
  * Assets and trackers are reused across runs (PLAN/07-ASSET-REUSE.md). Each fleet's asset is found
  * again by its fixed fleet value (`fixtures/identity.ts`), and the fixture TennaCAM already
  * installed on it is reused, so a new run, a worker restart after a failed test, or a new day all
- * land on the same asset and tracker. A fleet that needs an asset with no history (`fr-phase2`,
+ * land on the same asset and tracker. A fleet that needs an asset with no history (`fr-first-trip`,
  * for O21) opts out with `freshAsset`. `env.ts`'s `suiteAssetId(fleet)` / `suiteAccountId(fleet)`
  * still let an operator pin either per fleet, and a pinned asset's fixture TennaCAM is reused too.
  */

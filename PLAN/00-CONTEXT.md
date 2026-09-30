@@ -26,7 +26,7 @@ Rosco camera
    -> live-events processor-scorecard updates the cached trip assignee
 ```
 
-Plus a NEW trip-end consumer on `asset.#.#.trip-ended` that links rows the live path could not link, sets the assignees under the same guards, and re-assigns the trip's threshold events. A trip-start consumer is designed but not scheduled for the initial deployment; O21 to O24 exercise it and are tagged `@phase2`.
+Plus a NEW trip-end consumer on `asset.#.#.trip-ended` that links rows the live path could not link, sets the assignees under the same guards, and re-assigns the trip's threshold events. A trip-start consumer on `asset.#.#.trip-started` also shipped in the initial release, and O22 to O24 exercise it.
 
 `{h}.{h}` is the two-character md5 hash of the device serial, `md5(vehicle_id)[0]` and `md5(vehicle_id)[1]`, joined by dots. Source: `js-models/src/rmq/standardHashTemplateObject.js`.
 
@@ -53,7 +53,7 @@ The suite reaches backend-crud over the intra-service path (a `requestor` header
 
 ## What does not exist and is blocked
 
-The `rosco_driver_events` table, the identification consumer, the trip-end consumer, the trip-start consumer (conditional), the widened threshold-event backfill cron, the trip-update guard in `backend-crud` that all three consumers depend on for safety, and `POST /api/v5/rosco-driver-events/search`. None of it has a seed script yet either, which the design doc calls a prerequisite rather than a detail. See `06-BLOCKERS.md` for the full list mapped to which O-cases each blocks.
+The `rosco_driver_events` table, the identification consumer, the trip-end consumer, the trip-start consumer, the widened threshold-event backfill cron, the trip-update guard in `backend-crud` that all three consumers depend on for safety, and `POST /api/v5/rosco-driver-events/search`. None of it has a seed script yet either, which the design doc calls a prerequisite rather than a detail. See `06-BLOCKERS.md` for the full list mapped to which O-cases each blocks.
 
 ## Scope of this module
 

@@ -162,12 +162,8 @@ export interface SuiteEnv {
   driverEventsReader: 'api' | 'sql';
   dbUrl: string | undefined;
   allowMutations: boolean;
-  /**
-   * Separate opt-in from `allowMutations`. `@phase2` scenarios exercise the trip-start consumer,
-   * which the design explicitly places outside the initial deployment, so `ALLOW_MUTATIONS` alone
-   * must not be enough to reach them (`playwright.config.ts`).
-   */
-  allowPhase2: boolean;
+  /** Also run the `@fresh-asset` scenarios, which create a new asset every run (`playwright.config.ts`). */
+  allowFreshAssets: boolean;
   debug: boolean;
   /** Skip provisioning writes and print what would be sent. Used to exercise the suite offline. */
   dryRun: boolean;
@@ -240,8 +236,8 @@ export const env: SuiteEnv = {
   get allowMutations(): boolean {
     return flag('ALLOW_MUTATIONS');
   },
-  get allowPhase2(): boolean {
-    return flag('ALLOW_PHASE2');
+  get allowFreshAssets(): boolean {
+    return flag('ALLOW_FRESH_ASSETS');
   },
   get debug(): boolean {
     return flag('FR_DEBUG');

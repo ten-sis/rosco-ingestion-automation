@@ -51,7 +51,7 @@ and reused by every scenario in it. `workers` is 4 and `fullyParallel` is false:
 concurrently, scenarios inside a file stay serial because the trip-recency guard is asset-scoped.
 Group related scenarios into as few suites as possible so as few assets and trackers are created
 as possible. Suites: `fr-live`, `fr-trip-lookup`, `fr-delayed`, `fr-guards`, `fr-race`,
-`fr-licence`, `fr-phase2`.
+`fr-licence`, `fr-trip-start`, `fr-first-trip`.
 
 `ACCOUNT_ID` and `ASSET_ID` are accepted for the whole run, and per suite as `ASSET_ID_<FLEET>` and
 `ACCOUNT_ID_<FLEET>`. `src/env.ts` exports `suiteAssetId(fleet)` and `suiteAccountId(fleet)`.

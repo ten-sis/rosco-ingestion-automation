@@ -200,16 +200,17 @@ export function defineScenarioTests(scenarios: readonly Scenario[], fleet: strin
   for (const group of opts.inOrder ?? []) {
     test.describe(`${group.join(', ')} in order`, () => {
       test.describe.configure({ mode: 'default' });
-      for (const id of group) registerScenario(scenarios.find((sc) => sc.id === id) as Scenario, fleet);
+      for (const id of group) registerScenario(scenarios.find((sc) => sc.id === id) as Scenario, fleet, opts);
     });
   }
   for (const scenario of scenarios) {
-    if (!grouped.has(scenario.id)) registerScenario(scenario, fleet);
+    if (!grouped.has(scenario.id)) registerScenario(scenario, fleet, opts);
   }
 }
 
-function registerScenario(scenario: Scenario, fleet: string): void {
-  const tags = (scenario.tags ?? []).join(' ');
+function registerScenario(scenario: Scenario, fleet: string, opts: ScenarioFileOptions): void {
+  // `@fresh-asset` is opt-in (`playwright.config.ts`), since each run adds an asset to the account.
+  const tags = [...(scenario.tags ?? []), ...(opts.freshAsset ? ['@fresh-asset'] : [])].join(' ');
   const title = `${scenario.id} @mutating ${tags} ${scenario.title}`.replace(/\s+/g, ' ').trim();
   // Read by `src/reporting/summaryReporter.ts` to print what each case is meant to prove.
   const docCase = designDocCaseFor(scenario.id);

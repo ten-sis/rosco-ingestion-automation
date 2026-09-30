@@ -1,8 +1,8 @@
 {
   "id": "O23",
   "title": "Trip-start and trip-end both run against the same already-linked row",
-  "description": "Phase-2, trip-start-consumer case (tagged @phase2, excluded from the default run). An ordinary live trip: driver A is identified at atSec 60 while the trip is open, well before the trip closes at atSec 150. Both the trip-start consumer (when the trip begins) and the trip-end consumer (when it closes) run their own check-before-write guard against this same row. Must prove: the trip-end consumer finds the claim already decided and both writes already in place, and performs neither write again -- exactly one rosco_driver_events row, still carrying is_assignee_source true, count 1. Must NOT change: the assignee must not move a second time when the trip closes, and no duplicate row or duplicate audit entry may appear.",
-  "suite": "fr-phase2",
+  "description": "Trip-start consumer case. An ordinary live trip: driver A is identified at atSec 60 while the trip is open, well before the trip closes at atSec 150. Both the trip-start consumer (when the trip begins) and the trip-end consumer (when it closes) run their own check-before-write guard against this same row. Must prove: the trip-end consumer finds the claim already decided and both writes already in place, and performs neither write again -- exactly one rosco_driver_events row, still carrying is_assignee_source true, count 1. Must NOT change: the assignee must not move a second time when the trip closes, and no duplicate row or duplicate audit entry may appear.",
+  "suite": "fr-trip-start",
   "delay": {
     "mode": "none"
   },

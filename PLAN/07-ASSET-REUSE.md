@@ -109,7 +109,7 @@ O21 (`src/scenarios/phase2.ts`) needs "an asset's very first trip". It only pass
 
 Add a per-file option: `defineScenarioTests(scenarios, fleet, { freshAsset: true })`. It sets a `freshAsset` worker option that `provisionFleetRun` reads, and when it's true provisioning keeps today's behavior (a new asset named with the run id). Use it only for `tests/o-phase2.spec.ts`. Phase 2 is opt-in through `ALLOW_PHASE2`, so this keeps adding assets only when someone asks for phase 2.
 
-As a follow-up, O21 could be moved into its own file so the other three phase 2 cases reuse their asset. That's not needed now.
+Done since: O21 is alone in `tests/o-first-trip.spec.ts`, and O22 to O24 moved to `tests/o-trip-start.spec.ts`, which reuses its assets.
 
 ### 8. Clean out the dead pins
 

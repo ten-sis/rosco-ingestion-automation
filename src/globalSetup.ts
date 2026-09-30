@@ -30,14 +30,13 @@ function refuseDryRunMutations(): void {
 
 function printSkipBanner(): void {
   const total = ALL_SCENARIOS.length;
-  const phase2Count = ALL_SCENARIOS.filter((s) => s.tags?.includes('@phase2')).length;
   const rule = '='.repeat(78);
 
   if (!env.allowMutations) {
     console.log(
       `\n${rule}\n` +
         `FR SUITE: DEFAULT INVOCATION. ALLOW_MUTATIONS is not set, so all ${total} operation ` +
-        `scenarios (including ${phase2Count} @phase2) are SKIPPED via playwright.config.ts's ` +
+        `scenarios are SKIPPED via playwright.config.ts's ` +
         `grepInvert. Only the read-only "connectivity" and offline "unit" projects run. This ` +
         `is a green run that has exercised NONE of the facial-recognition pipeline.\n` +
         `Set ALLOW_MUTATIONS=1 to run the operation suite against a real, non-production target.\n` +
@@ -46,13 +45,11 @@ function printSkipBanner(): void {
     return;
   }
 
-  if (!env.allowPhase2 && phase2Count > 0) {
+  if (!env.allowFreshAssets) {
     console.log(
       `\n${rule}\n` +
-        `FR SUITE: ALLOW_MUTATIONS is set, but ALLOW_PHASE2 is not, so ${phase2Count} @phase2 ` +
-        `scenario(s) are SKIPPED. They exercise the trip-start consumer, which the design doc ` +
-        `places explicitly outside the initial deployment.\n` +
-        `Set ALLOW_PHASE2=1 as well (npm run test:phase2 needs both) to reach them.\n` +
+        `FR SUITE: ALLOW_FRESH_ASSETS is not set, so the @fresh-asset scenarios (O21), which ` +
+        `create a new asset every run, are SKIPPED. Set ALLOW_FRESH_ASSETS=1 to include them.\n` +
         `${rule}\n`,
     );
   }

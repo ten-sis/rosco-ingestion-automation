@@ -208,28 +208,28 @@ What must ship first: the mirror licence check in `TripEventService.getAssigneeO
 
 Not automated. Priority P1 in the design doc, but the audit detects a lost publish and the team reacts to it, so there is nothing for an automated test to prove; see `OUT-OF-SCOPE.md` for the full reasoning and `06-BLOCKERS.md` for the decision record. `src/scenarios/resilience.ts` and `tests/o-resilience.spec.ts` are deleted.
 
-## O21 — Asset's very first trip, pre-start tolerance (`o-phase2.spec.ts`, `@phase2`)
+## O21 — Asset's very first trip, pre-start tolerance (`o-first-trip.spec.ts`)
 
 Preconditions: none, and this must be the asset's first trip ever (a fresh fixture, not reused).
 Timeline: identify A five minutes before the asset's first trip starts; run and close the trip.
 Expected end state: linked and awarded, via the ten-minute pre-start tolerance used when no previous trip exists to floor the window.
-What must ship first: the trip-start consumer, or the trip-end consumer's pre-start-tolerance fallback if the trip-start consumer is never built.
+What must ship first: the trip-end consumer's pre-start-tolerance fallback (`resolveWindowStart`), which has shipped. Opt-in with `ALLOW_FRESH_ASSETS=1`, since it creates a new asset every run.
 
-## O22 — Trip start arrives after an identification for that trip (`o-phase2.spec.ts`, `@phase2`)
+## O22 — Trip start arrives after an identification for that trip (`o-trip-start.spec.ts`)
 
 Preconditions: none.
 Timeline: identify A before the trip appears in Tenna; then the trip-started message arrives, backdated.
 Expected end state: linked, awarded, both assignees written, and the assignee publish fires so threshold events raised for the rest of the trip already carry A.
-What must ship first: the trip-start consumer entirely; this is the case that justifies building it.
+What must ship first: the trip-start consumer, which shipped in the initial release (TS-43907).
 
-## O23 — Trip-start and trip-end both run against the same linked row (`o-phase2.spec.ts`, `@phase2`)
+## O23 — Trip-start and trip-end both run against the same linked row (`o-trip-start.spec.ts`)
 
 Preconditions: none.
 Timeline: a normal live identification inside an open trip, ending normally.
 Expected end state: trip-end finds the claim already decided and both writes already in place, and does nothing a second time.
 What must ship first: the trip-start consumer, plus both consumers' check-before-write idempotency.
 
-## O24 — Trip-started published inside the trip-end path (`o-phase2.spec.ts`, `@phase2`)
+## O24 — Trip-started published inside the trip-end path (`o-trip-start.spec.ts`)
 
 Preconditions: none.
 Timeline: a normal live identification, then ignition-off.

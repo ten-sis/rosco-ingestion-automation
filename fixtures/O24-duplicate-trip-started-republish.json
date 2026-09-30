@@ -1,8 +1,8 @@
 {
   "id": "O24",
   "title": "A trip-started message republished inside the trip-end path, immediately before trip-ended",
-  "description": "Phase-2, trip-start-consumer case (tagged @phase2, excluded from the default run). Same shape as O23 (identification for driver A at atSec 60, live, trip closes at atSec 150): the Fixture format has no primitive to force an out-of-band duplicate trip-started republish immediately ahead of trip-ended (there is nothing in this contract for 're-emit a lifecycle message'), so this fixture is a best-effort proxy that asserts the outcome (no double-write) rather than forcing the exact adjacent-publish ordering; forcing the real republish, if it is needed, is left to the telemetry emitter or moves this case to OUT-OF-SCOPE.md as manual. Must prove: the trip-recency and trip-driver guards produce the same single-write outcome as O23 even if a trip-started message were replayed immediately before trip-ended. Must NOT change: no duplicate row, no duplicate assignee write, no assignee other than A.",
-  "suite": "fr-phase2",
+  "description": "Trip-start consumer case. Same shape as O23 (identification for driver A at atSec 60, live, trip closes at atSec 150): the Fixture format has no primitive to force an out-of-band duplicate trip-started republish immediately ahead of trip-ended (there is nothing in this contract for 're-emit a lifecycle message'), so this fixture is a best-effort proxy that asserts the outcome (no double-write) rather than forcing the exact adjacent-publish ordering; forcing the real republish, if it is needed, is left to the telemetry emitter or moves this case to OUT-OF-SCOPE.md as manual. Must prove: the trip-recency and trip-driver guards produce the same single-write outcome as O23 even if a trip-started message were replayed immediately before trip-ended. Must NOT change: no duplicate row, no duplicate assignee write, no assignee other than A.",
+  "suite": "fr-trip-start",
   "delay": {
     "mode": "none"
   },

@@ -250,7 +250,7 @@ export interface Scenario {
   title: string;
   /** P0, P1 or P2, copied from the design doc's Developer Test Plan. */
   priority: 'P0' | 'P1' | 'P2';
-  tags?: Array<'@live' | '@slow' | '@phase2' | '@race' | '@contested'>;
+  tags?: Array<'@live' | '@slow' | '@race' | '@contested'>;
   preconditions?: Precondition;
   timeline: Step[];
   /** Asserted after the timeline has been delivered and the pipeline has settled. */

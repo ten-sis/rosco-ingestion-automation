@@ -28,7 +28,8 @@ const VALID_SUITES = new Set([
   'fr-guards',
   'fr-race',
   'fr-licence',
-  'fr-phase2',
+  'fr-trip-start',
+  'fr-first-trip',
 ]);
 const VALID_DRIVER_KEYS = new Set(['A', 'B', 'C', 'D']);
 

@@ -1,7 +1,7 @@
 /**
  * Re-exports every scenario group plus the flattened `ALL_SCENARIOS` list TRACEABILITY.md and
  * ad-hoc tooling can iterate over. Individual spec files import their own group directly rather
- * than filtering this list, so `--grep-invert @phase2` stays the mechanism for excluding phase 2.
+ * than filtering this list.
  *
  * No `RESILIENCE_SCENARIOS` group here: O20 moved to `OUT-OF-SCOPE.md` (AGENT-BRIEF revision 2,
  * item 6). `src/scenarios/resilience.ts` and `tests/o-resilience.spec.ts` were deleted.
@@ -13,7 +13,8 @@ import { DELAYED_SCENARIOS } from './delayed';
 import { GUARDS_SCENARIOS } from './guards';
 import { RACE_SCENARIOS } from './race';
 import { LICENCE_SCENARIOS } from './licence';
-import { PHASE2_SCENARIOS } from './phase2';
+import { TRIP_START_SCENARIOS } from './tripStart';
+import { FIRST_TRIP_SCENARIOS } from './firstTrip';
 import type { Scenario } from '../scenario/types';
 
 export { LIVE_SCENARIOS } from './live';
@@ -22,7 +23,8 @@ export { DELAYED_SCENARIOS } from './delayed';
 export { GUARDS_SCENARIOS } from './guards';
 export { RACE_SCENARIOS } from './race';
 export { LICENCE_SCENARIOS } from './licence';
-export { PHASE2_SCENARIOS } from './phase2';
+export { TRIP_START_SCENARIOS } from './tripStart';
+export { FIRST_TRIP_SCENARIOS } from './firstTrip';
 
 export const ALL_SCENARIOS: readonly Scenario[] = [
   ...LIVE_SCENARIOS,
@@ -32,5 +34,6 @@ export const ALL_SCENARIOS: readonly Scenario[] = [
   ...GUARDS_SCENARIOS,
   ...RACE_SCENARIOS,
   ...LICENCE_SCENARIOS,
-  ...PHASE2_SCENARIOS,
+  ...TRIP_START_SCENARIOS,
+  ...FIRST_TRIP_SCENARIOS,
 ];

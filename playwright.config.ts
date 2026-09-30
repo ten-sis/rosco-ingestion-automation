@@ -20,21 +20,18 @@ void env.crudBaseUrl;
 void env.webhookBaseUrl;
 
 const allowMutations = env.allowMutations;
-const allowPhase2 = env.allowPhase2;
+const allowFreshAssets = env.allowFreshAssets;
 
 /**
  * Tags excluded from the default run. `@mutating` covers every operation-suite test (it is baked
  * into every generated title in `src/fixtures/test.ts`'s `defineScenarioTests`) and needs
- * `ALLOW_MUTATIONS`. `@phase2` needs its OWN opt-in even once mutations are allowed: those four
- * scenarios (`src/scenarios/phase2.ts`) exercise the trip-start consumer, which the design doc
- * places explicitly outside the initial deployment, so `ALLOW_MUTATIONS` alone must not be enough
- * to reach them. `npm run test:phase2`'s `--grep @phase2` still ANDs against this `grepInvert`
- * (Playwright applies both), so reaching those tests needs `ALLOW_MUTATIONS=1 ALLOW_PHASE2=1
- * npm run test:phase2`, not the script alone.
+ * `ALLOW_MUTATIONS`. `@fresh-asset` marks every scenario in a file that creates a new asset each run
+ * (`defineScenarioTests(..., { freshAsset: true })`, O21 today) and needs `ALLOW_FRESH_ASSETS` as
+ * well, so a normal run only reuses fixtures.
  */
 const excludedTagPatterns: string[] = [];
 if (!allowMutations) excludedTagPatterns.push('@mutating');
-if (!allowPhase2) excludedTagPatterns.push('@phase2');
+if (!allowFreshAssets) excludedTagPatterns.push('@fresh-asset');
 const grepInvert = excludedTagPatterns.length > 0 ? new RegExp(excludedTagPatterns.join('|')) : undefined;
 
 export default defineConfig({

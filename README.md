@@ -79,7 +79,7 @@ Each scenario has its own asset per account, and every run reuses it. Provisioni
 
 Two exceptions:
 
-- `fr-phase2` creates new assets every time, because O21 needs an asset's very first trip.
+- `fr-first-trip` creates a new asset every time, because O21 needs an asset's very first trip. Scenarios in a file like that are tagged `@fresh-asset` and only run with `ALLOW_FRESH_ASSETS=1`.
 - Set `FIXTURE_NAMESPACE` (for example to your initials) to get your own set, `[FRTest]-<namespace>-<fleet>`. Do this if someone else may run the same fleets on the same account at the same time, since you'd otherwise share one asset.
 
 Every fixture asset is put on a scorecard template named `[FRTest] harsh events`, which provisioning creates on each account the first time, with low hard braking, acceleration and cornering thresholds. hapi-server-live-events only turns a harsh trip event into a violation when the asset has a template with a threshold for it, so without this the fixture trips had no violations and the violation checks had nothing to check. Harsh frames also carry a speed of 40 mph for the same reason (a harsh event with no speed never scores). Violation checks fail when a trip has no violations at all.
@@ -105,17 +105,14 @@ Two to five minutes, never longer (`MAX_TRIP_SECONDS` in `src/constants.ts`). A 
 ## Run commands
 
 ```bash
-# everything except phase 2 (the trip-start consumer, not part of the initial deployment)
-ACCOUNT_ID=<id> ALLOW_MUTATIONS=1 npm run test:all
-
 # just the live-identification cases
 npm run test:live
 
 # just the cases that wait past the scorecard backfill cron's 5-minute run
 npm run test:slow
 
-# the phase-2 trip-start consumer cases, once that consumer is built
-npm run test:phase2
+# just the cases that create a new asset every run (O21). Needs ALLOW_FRESH_ASSETS=1 too
+npm run test:fresh-asset
 
 # everything, unfiltered
 npm test
@@ -142,7 +139,7 @@ This is what a real run against the Dv3A cluster does today.
 
 ### Default run: read-only, green
 
-`npm run test:all` without `ALLOW_MUTATIONS` runs 51 tests: 50 pass and 1 is skipped. The 7 `connectivity` tests go first, then the 44 offline `unit` tests. The skipped one is the DB check, which only runs when `DB_URL` is set or `DRIVER_EVENTS_READER=sql`. A green default run proves every tunnel is up, the account is the expected one, and the account already has the rosco integration and an active FR licence. It exercises none of the facial-recognition pipeline. With a tunnel down, the matching connectivity test fails in milliseconds with the tunnel named, and every other test is reported as "did not run".
+`npm test` without `ALLOW_MUTATIONS` runs 51 tests: 50 pass and 1 is skipped. The 7 `connectivity` tests go first, then the 44 offline `unit` tests. The skipped one is the DB check, which only runs when `DB_URL` is set or `DRIVER_EVENTS_READER=sql`. A green default run proves every tunnel is up, the account is the expected one, and the account already has the rosco integration and an active FR licence. It exercises none of the facial-recognition pipeline. With a tunnel down, the matching connectivity test fails in milliseconds with the tunnel named, and every other test is reported as "did not run".
 
 ### Mutating run
 
@@ -177,7 +174,7 @@ Each of these was hidden until the suite first ran against a real cluster, and e
 
 ### Cleanup
 
-Reuse keeps the count steady at one asset per fleet (plus `-secondary` assets and `fr-phase2`'s fresh ones), but nothing deletes fixtures automatically. Each run's manifest under `.runs/[FRTest]-*.json` (gitignored) lists every fixture it used, with `"reused": true` on the ones it found rather than created. Assets from before reuse was added have names like `[FRTest]-fr-live-[FRTest]-1790300381973` and are never picked up again.
+Reuse keeps the count steady at one asset per fleet (plus `-secondary` assets and `fr-first-trip`'s fresh ones), but nothing deletes fixtures automatically. Each run's manifest under `.runs/[FRTest]-*.json` (gitignored) lists every fixture it used, with `"reused": true` on the ones it found rather than created. Assets from before reuse was added have names like `[FRTest]-fr-live-[FRTest]-1790300381973` and are never picked up again.
 
 ## Layout
 
@@ -197,7 +194,7 @@ playwright-fr/
     connectivity/services.spec.ts  connectivity/account-readiness.spec.ts   read-only gate
     setup/provision.spec.ts
     o-live.spec.ts  o-trip-lookup.spec.ts  o-trip-lookup-gaps.spec.ts  o-delayed.spec.ts  o-guards.spec.ts
-    o-race.spec.ts  o-licence.spec.ts  o-phase2.spec.ts
+    o-race.spec.ts  o-licence.spec.ts  o-trip-start.spec.ts  o-first-trip.spec.ts
   PLAN/                       the full documentation pack; start at PLAN/README.md
   TRACEABILITY.md  OUT-OF-SCOPE.md
 ```
