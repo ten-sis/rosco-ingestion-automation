@@ -51,6 +51,7 @@ function identToStep(ident: FixtureIdentification, atSec: number): Step {
     as: ident.as,
     redeliverOf: ident.redeliverOf,
     unknownDriver: ident.unknownDriver,
+    deletedDriver: ident.deletedDriver,
     note: ident.note,
   } satisfies IdentStep;
 }

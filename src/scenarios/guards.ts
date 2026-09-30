@@ -21,6 +21,7 @@ import o72Fixture from '../../fixtures/O7.2-identification-after-manual-change.j
 import o8Fixture from '../../fixtures/O8-contact-deactivated-before-trip-end.json';
 import o8bFixture from '../../fixtures/O8b-contact-disabled-before-identification.json';
 import o8cFixture from '../../fixtures/O8c-identification-for-unknown-contact.json';
+import o8dFixture from '../../fixtures/O8d-identification-for-deleted-contact.json';
 import o13Fixture from '../../fixtures/O13-exclude-transferred-violations.json';
 import { expandFixtureToSteps, insertAfterIndex, lastIndexWhere } from './fixturePlayback';
 
@@ -357,4 +358,47 @@ const O8c: Scenario = {
     "QA T16521553: a Type 7 whose driver_guid is no Tenna contact. The identification consumer's `resolveContact` finds no contact, so the row is persisted as unidentified (contact_id null), is never eligible, and nothing is written. The HARDBRAKE at atSec 30 makes `noTransfers` a live check. Not a row in the doc's table; it sits next to O8 because it's the same eligibility rule. The guid is random per execution (`unknownDriver` on the identification).",
 };
 
-export const GUARDS_SCENARIOS: readonly Scenario[] = [O7_1, O7_2, O8, O8b, O8c, O13];
+// ---------------------------------------------------------------------------
+// O8d — compiled from fixtures/O8d-identification-for-deleted-contact.json
+// ---------------------------------------------------------------------------
+
+const o8dBase = expandFixtureToSteps(o8dFixture as Fixture);
+const o8dIdentIndex = lastIndexWhere(o8dBase, (s) => s.kind === 'ident');
+const o8dWithIdentSettle = insertAfterIndex(o8dBase, o8dIdentIndex, {
+  kind: 'settle',
+  atSec: 71,
+  until: 'identificationPersisted',
+  budget: 'LIVE_BUDGET_MS',
+});
+const o8dIdentSettleIndex = o8dIdentIndex + 1;
+const o8dTimeline: Step[] = [...o8dWithIdentSettle, { kind: 'settle', atSec: 151, until: 'tripEnded', budget: 'TRIP_END_BUDGET_MS' }];
+
+const O8d: Scenario = {
+  id: 'O8d',
+  title: 'Identification naming a deleted contact',
+  priority: 'P0',
+  tags: [],
+  preconditions: { assetAssignee: 'B' },
+  timeline: o8dTimeline,
+  expectAfterStep: [
+    {
+      afterIndex: o8dIdentSettleIndex,
+      expect: {
+        assetAssignee: { value: 'unchanged' },
+        trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
+        // A soft-deleted contact resolves like no contact at all.
+        driverEvents: [{ driver: null, type: 'identDrv', isAssigneeSource: null, tripLink: { state: 'unlinked' } }],
+      },
+    },
+  ],
+  expect: {
+    assetAssignee: { value: 'unchanged' },
+    trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
+    driverEvents: [{ driver: null, type: 'identDrv', count: 1, isAssigneeSource: null }],
+    thresholdEvents: [{ tripRef: 'latest', noTransfers: true }],
+  },
+  rationale:
+    "QA T16521555: a Type 7 naming a contact that is soft-deleted in Tenna. The identification consumer's `resolveContact` treats a contact with `deleted_at` as unresolved, so the row is persisted as unidentified and nothing is written. The HARDBRAKE at atSec 30 makes `noTransfers` a live check. The deleted contact is a fixture, `[FRTest]-<fleet> Driver Deleted`, created and deleted once and found again through `include_deleted` (`ensureDeletedFixtureContact`).",
+};
+
+export const GUARDS_SCENARIOS: readonly Scenario[] = [O7_1, O7_2, O8, O8b, O8c, O8d, O13];

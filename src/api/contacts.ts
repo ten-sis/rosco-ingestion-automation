@@ -137,6 +137,35 @@ export async function patchContact(
   await api.patch<void>('/v5/contacts', [{ id, ...changes }]);
 }
 
+/**
+ * Soft-deletes contacts. DELETE /v5/contacts takes no id segment: the body is the array of ids
+ * (contact/v4/controller.js `destroy`, `where: { id: req.body }`).
+ */
+export async function deleteContacts(api: ApiClient, ids: readonly Uuid[]): Promise<void> {
+  await api.delete<void>('/v5/contacts', undefined, ids);
+}
+
+/**
+ * Finds a contact by exact name, including soft-deleted ones. `include_deleted` makes the search
+ * drop Sequelize's paranoid filter and return `deleted_at` (contact/v5/service.js `searchPost`).
+ */
+export async function findContactIncludingDeleted(
+  api: ApiClient,
+  first: string,
+  last: string,
+): Promise<(Contact & { deleted_at: string | null }) | undefined> {
+  for (let offset = 0; offset < MAX_CONTACTS_SCANNED; offset += SEARCH_PAGE_SIZE) {
+    const response = await api.post<{ results: Array<ApiContactFields & { deleted_at?: string | null }> }>(
+      '/v5/contacts/search',
+      { fields: CONTACT_SEARCH_FIELDS, include_deleted: true, limit: SEARCH_PAGE_SIZE, offset },
+    );
+    const match = response.results.find((c) => c.first_name === first && c.last_name === last);
+    if (match) return { ...match, deleted_at: match.deleted_at ?? null } as Contact & { deleted_at: string | null };
+    if (response.results.length < SEARCH_PAGE_SIZE) return undefined;
+  }
+  return undefined;
+}
+
 /** Enables or disables a contact. The contact must already have an email or mobile phone. */
 export async function setContactEnabled(api: ApiClient, id: Uuid, enabled: boolean): Promise<void> {
   await patchContact(api, id, { enabled });

@@ -81,6 +81,8 @@ export interface IdentStep extends StepBase {
   as?: string;
   /** Send a Type 7 whose `driver_guid` matches no contact. Needs `driver: null`. */
   unknownDriver?: boolean;
+  /** Send a Type 7 naming the fleet's soft-deleted fixture contact. Needs `driver: null`. */
+  deletedDriver?: boolean;
 }
 
 /** A manual asset-assignee correction, the way a human makes one in the UI. */

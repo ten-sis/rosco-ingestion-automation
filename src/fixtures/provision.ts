@@ -39,7 +39,7 @@ import {
 import { getTrip, searchTrips } from '../api/trips';
 import { createTemplate, createThresholds, searchTemplates, searchThresholds } from '../api/scorecards';
 import type { NewThreshold } from '../api/scorecards';
-import { createContact, getContact, patchContact, searchContactsByName } from '../api/contacts';
+import { createContact, deleteContacts, findContactIncludingDeleted, getContact, patchContact, searchContactsByName } from '../api/contacts';
 import { accountHasLicence, accountHasRoscoIntegration, licenceNameMatches } from '../api/licences';
 import { createTelemetryEmitter } from '../emit/telemetry';
 import { waitForDigestionReady } from '../scenario/waits';
@@ -349,6 +349,36 @@ export async function preflight(api: ApiClient): Promise<string[]> {
  * `FIXTURE_PREFIX` (matching `searchContactsByName`'s client-side startsWith filter), then matches
  * each `DriverKey` by exact first and last name, creating only the ones not found.
  */
+const deletedContactByFleet = new Map<string, Promise<Uuid>>();
+
+/**
+ * A fixture contact that stays soft-deleted, for identifications naming a deleted driver. Found
+ * again each run through `include_deleted`, so it's created and deleted once per account and fleet.
+ */
+export function ensureDeletedFixtureContact(api: ApiClient, fleet: string): Promise<Uuid> {
+  const key = `${api.accountId}:${fleet}`;
+  let pending = deletedContactByFleet.get(key);
+  if (!pending) {
+    pending = (async () => {
+      const first = fixtureDriverFirstName(fleet, env.fixtureNamespace);
+      const found = await findContactIncludingDeleted(api, first, 'Deleted');
+      if (found?.deleted_at) {
+        recordReused('contact', found.id, 'deleted');
+        return found.id;
+      }
+      let id = found?.id;
+      if (!id) {
+        id = await createContact(api, first, 'Deleted', fixtureContactEmail(api.accountId, fleet, 'deleted', env.fixtureNamespace));
+        recordCreated('contact', id, 'deleted');
+      }
+      await deleteContacts(api, [id]);
+      return id;
+    })();
+    deletedContactByFleet.set(key, pending);
+  }
+  return pending;
+}
+
 export async function ensureContacts(
   api: ApiClient,
   fleet: string,

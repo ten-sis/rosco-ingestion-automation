@@ -33,7 +33,7 @@ import { getAssetAssignee, setAssetAssignee } from '../api/assets';
 import { searchTrips, setTripAssignee } from '../api/trips';
 import { searchThresholdEvents, transferThresholdEvents } from '../api/thresholdEvents';
 import { setContactEnabled } from '../api/contacts';
-import { setAccountLicenceEnabled } from '../fixtures/provision';
+import { ensureDeletedFixtureContact, setAccountLicenceEnabled } from '../fixtures/provision';
 import { ensureTrackItIntegration, removeSuiteTrackItIntegration } from '../api/licences';
 import { buildDriverEventPayload } from '../emit/index';
 import type { GmsEventType } from '../fixture/types';
@@ -654,15 +654,17 @@ async function deliverIdentStep(sc: ScenarioContext, step: IdentStep): Promise<v
   }
 
   const asset = await resolveAsset(sc, step.assetRef);
-  const type: DriverEventType = step.unknownDriver ? 'identDrv' : (step.type ?? (step.driver === null ? 'unDrv' : 'identDrv'));
+  const namesOther = step.unknownDriver || step.deletedDriver;
+  const type: DriverEventType = namesOther ? 'identDrv' : (step.type ?? (step.driver === null ? 'unDrv' : 'identDrv'));
   const contact = step.driver === null ? undefined : sc.run.contacts[step.driver];
+  const otherGuid = step.deletedDriver ? await ensureDeletedFixtureContact(sc.api, sc.fleet) : randomUUID();
   const payload = {
     ...buildDriverEventPayload({
       vehicleId: asset.vehicleId,
       timestampIso: logicalTime(sc, step.atSec),
-      driverGuid: step.unknownDriver ? randomUUID() : (contact?.id ?? null),
-      driverFirst: step.unknownDriver ? 'Unknown' : contact?.first_name,
-      driverLast: step.unknownDriver ? 'Driver' : contact?.last_name,
+      driverGuid: namesOther ? otherGuid : (contact?.id ?? null),
+      driverFirst: namesOther ? 'Other' : contact?.first_name,
+      driverLast: namesOther ? 'Driver' : contact?.last_name,
       lat: DEFAULT_LAT,
       lon: DEFAULT_LON,
     }),

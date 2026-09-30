@@ -250,9 +250,9 @@ export class ApiClient {
     return this.send<T>('patch', url, body, o, this.intraServiceHeaders(o?.headers, o?.omitAccountId));
   }
 
-  delete<T>(path: string, o?: ApiCallOptions): Promise<T> {
+  delete<T>(path: string, o?: ApiCallOptions, body?: unknown): Promise<T> {
     const url = `${this.baseUrl}${path}${buildQuery(o?.query)}`;
-    return this.send<T>('delete', url, undefined, o, this.intraServiceHeaders(o?.headers, o?.omitAccountId));
+    return this.send<T>('delete', url, body, o, this.intraServiceHeaders(o?.headers, o?.omitAccountId));
   }
 
   /**

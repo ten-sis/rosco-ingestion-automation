@@ -74,6 +74,8 @@ export interface FixtureIdentification {
   redeliverOf?: string;
   /** A Type 7 whose `driver_guid` matches no contact. Needs `driver: null` and `type: 'identDrv'`. */
   unknownDriver?: boolean;
+  /** A Type 7 naming the fleet's soft-deleted fixture contact. Needs `driver: null` and `type: 'identDrv'`. */
+  deletedDriver?: boolean;
   note?: string;
 }
 
