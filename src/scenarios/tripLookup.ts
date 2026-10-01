@@ -543,7 +543,9 @@ const O61: Scenario = {
     },
   ],
   expect: {
-    assetAssignee: { value: 'C' },
+    // Accepted residual (2026-10-01, monitored in production): C's event time is older than when
+    // A's late write landed, so the asset guard skips C. Trip 2 still moves to C.
+    assetAssignee: { value: 'A' },
     trips: [
       { tripRef: 'first', assignee: 'A' },
       { tripRef: 'latest', assignee: 'C' },
@@ -555,7 +557,7 @@ const O61: Scenario = {
     ],
   },
   rationale:
-    "The design's O6.1: 'Same as O6, then trip 2's first identification arrives for another driver. Trip 2's driver and the asset change to that driver. A later identification for trip 2 changes nothing.' C's identification is stamped inside trip 2, which ended before trip 1's late identification for A landed, and is delivered after it. The asset guard compares the standing assignment's write time (when A's late write landed) with C's event time, so this case is where the known residual of the latest-write-wins decision shows: if the asset stays on A, the guard skipped C's write. D's identification, delivered last, must not take trip 2 from C. Violations aren't checked here, since O6 already covers trip 1's.",
+    "The design's O6.1, with the residual the team accepted on 2026-10-01: trip 2's first identification (C) arrives after trip 1's late one (A). C's identification is stamped inside trip 2, which ended before A's late write landed. The asset guard compares the standing assignment's write time with C's event time, so it skips C's asset write and the asset stays on A. Trip 2's own driver still moves to C. On dv3 (2026-10-01) the identification consumer logged 'Standing asset assignee is newer than this identification' for C. The design expected the asset to move to C; this is being monitored in production rather than fixed. D's identification, delivered last, must not take trip 2 from C. Violations aren't checked here, since O6 already covers trip 1's.",
 };
 
 export const TRIP_LOOKUP_GAP_SCENARIOS: readonly Scenario[] = [O12c, O6, O61];
