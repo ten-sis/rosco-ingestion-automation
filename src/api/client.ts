@@ -17,8 +17,8 @@
  * fails the PUBLIC_SERVICE_REQUEST_HEADER_HOSTS check for localhost. So this client never sends one.
  *
  * `user_id` is deliberately omitted. The server falls back to TENNA_MICROSERVICE_USER_ID, the same
- * identity the ingestion pipeline writes as, which is what the design doc means by writes
- * rendering as Tenna Support (app/middleware/session.js:26-34).
+ * identity the ingestion pipeline writes as (app/middleware/session.js:26-34). It renders as
+ * "Tenna Automation" (microservices@tenna.com), not the "Tenna Support" the design doc names.
  *
  * TRANSPORT VS AUTHORIZATION -- THIS IS NOT A PERMISSION BYPASS
  *
