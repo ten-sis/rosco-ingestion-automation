@@ -22,6 +22,7 @@ import o8Fixture from '../../fixtures/O8-contact-deactivated-before-trip-end.jso
 import o8bFixture from '../../fixtures/O8b-contact-disabled-before-identification.json';
 import o8cFixture from '../../fixtures/O8c-identification-for-unknown-contact.json';
 import o8dFixture from '../../fixtures/O8d-identification-for-deleted-contact.json';
+import o8eFixture from '../../fixtures/O8e-identification-with-malformed-guid.json';
 import o13Fixture from '../../fixtures/O13-exclude-transferred-violations.json';
 import { expandFixtureToSteps, insertAfterIndex, lastIndexWhere } from './fixturePlayback';
 
@@ -401,4 +402,43 @@ const O8d: Scenario = {
     "QA T16521555: a Type 7 naming a contact that is soft-deleted in Tenna. The identification consumer's `resolveContact` treats a contact with `deleted_at` as unresolved, so the row is persisted as unidentified and nothing is written. The HARDBRAKE at atSec 30 makes `noTransfers` a live check. The deleted contact is a fixture, `[FRTest]-<fleet> Driver Deleted`, created and deleted once and found again through `include_deleted` (`ensureDeletedFixtureContact`).",
 };
 
-export const GUARDS_SCENARIOS: readonly Scenario[] = [O7_1, O7_2, O8, O8b, O8c, O8d, O13];
+// ---------------------------------------------------------------------------
+// O8e — compiled from fixtures/O8e-identification-with-malformed-guid.json
+// ---------------------------------------------------------------------------
+
+const o8eBase = expandFixtureToSteps(o8eFixture as Fixture);
+const o8eIdentIndex = lastIndexWhere(o8eBase, (s) => s.kind === 'ident');
+const o8eTimeline: Step[] = [...o8eBase, { kind: 'settle', atSec: 151, until: 'tripEnded', budget: 'TRIP_END_BUDGET_MS' }];
+
+// An error-level line naming this execution's guid is the consumer rejecting the message.
+const O8E_REJECTED_LOG = {
+  namespace: 'integration',
+  deployment: 'rosco-driver-events-0',
+  contains: ['{malformedGuid}', '"level":50'],
+};
+
+const O8e: Scenario = {
+  id: 'O8e',
+  title: "Identification whose driver_guid isn't a UUID",
+  priority: 'P1',
+  tags: [],
+  preconditions: { assetAssignee: 'B' },
+  timeline: o8eTimeline,
+  expectAfterStep: [
+    { afterIndex: o8eIdentIndex, expect: { assetAssignee: { value: 'unchanged' }, trips: [{ tripRef: 'latest', assignee: 'unchanged' }] } },
+  ],
+  expect: {
+    assetAssignee: { value: 'unchanged' },
+    trips: [{ tripRef: 'latest', assignee: 'unchanged' }],
+    // The message is rejected before the row is written.
+    driverEvents: [{ driver: null, type: 'identDrv', count: 0 }],
+    thresholdEvents: [{ tripRef: 'latest', noTransfers: true }],
+    serviceLogs: [O8E_REJECTED_LOG],
+  },
+  // No row is ever written, so the rejection's log line is what proves the consumer ran.
+  livenessLog: O8E_REJECTED_LOG,
+  rationale:
+    "The design's O8.1, second half: 'a guid that is not a v1 to v5 UUID: 422 from the contacts route and one message in rosco-driver-events_error, no row.' be-crud's publish route only accepts a UUID driver_guid, so the identification goes through the webhook, the path a real Rosco payload takes. The identification consumer's contact lookup gets 422 ('expected uuid in path'), which the default circuit breaker excludes, so the error is logged and the message rejected to the error queue without opening the breaker. The error queue itself isn't read here; the error-level log line with this execution's guid stands in for it. The design's other half, an unknown camera serial, is covered by the repo unit test `should skip unknown devices for driver events`.",
+};
+
+export const GUARDS_SCENARIOS: readonly Scenario[] = [O7_1, O7_2, O8, O8b, O8c, O8d, O8e, O13];

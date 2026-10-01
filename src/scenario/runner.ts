@@ -36,6 +36,7 @@ import { setContactEnabled } from '../api/contacts';
 import { ensureDeletedFixtureContact, setAccountLicenceEnabled } from '../fixtures/provision';
 import { ensureTrackItIntegration, removeSuiteTrackItIntegration } from '../api/licences';
 import { buildDriverEventPayload } from '../emit/index';
+import { createWebhookEmitter } from '../emit/webhook';
 import type { GmsEventType } from '../fixture/types';
 import type { DriverEventType, DriverKey, Uuid } from '../types';
 import { FR_LICENSE_NAME } from '../constants';
@@ -66,6 +67,7 @@ import {
   assertDriverEventRowCount,
   assertThresholdEvent,
   assertServiceLog,
+  malformedDriverGuid,
   assertTrip,
   selectByWhich,
   settle as pauseForDeliveryOrder,
@@ -312,6 +314,7 @@ async function runTimelineExecution(scenario: Scenario, baseSc: ScenarioContext,
 
   const anchor = anchorTimeline(scenario.timeline, Date.now());
   sc.t0 = anchor.t0;
+  sc.livenessLog = scenario.livenessLog;
   const startDelayMs = anchor.startAtMs - Date.now();
   if (startDelayMs >= LOGGED_START_DELAY_MS) {
     // eslint-disable-next-line no-console
@@ -654,10 +657,14 @@ async function deliverIdentStep(sc: ScenarioContext, step: IdentStep): Promise<v
   }
 
   const asset = await resolveAsset(sc, step.assetRef);
-  const namesOther = step.unknownDriver || step.deletedDriver;
+  const namesOther = step.unknownDriver || step.deletedDriver || step.malformedDriverGuid;
   const type: DriverEventType = namesOther ? 'identDrv' : (step.type ?? (step.driver === null ? 'unDrv' : 'identDrv'));
   const contact = step.driver === null ? undefined : sc.run.contacts[step.driver];
-  const otherGuid = step.deletedDriver ? await ensureDeletedFixtureContact(sc.api, sc.fleet) : randomUUID();
+  const otherGuid = step.malformedDriverGuid
+    ? malformedDriverGuid(sc)
+    : step.deletedDriver
+      ? await ensureDeletedFixtureContact(sc.api, sc.fleet)
+      : randomUUID();
   const payload = {
     ...buildDriverEventPayload({
       vehicleId: asset.vehicleId,
@@ -670,7 +677,9 @@ async function deliverIdentStep(sc: ScenarioContext, step: IdentStep): Promise<v
     }),
     name: type,
   };
-  await sc.emitter.emit(payload);
+  // be-crud's publish route requires a UUID guid, so only the webhook can deliver a malformed one.
+  const emitter = step.malformedDriverGuid ? createWebhookEmitter(sc.api) : sc.emitter;
+  await emitter.emit(payload);
   if (step.as) recordIdentPayload(sc, step.as, payload);
 }
 

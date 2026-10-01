@@ -227,6 +227,10 @@ export async function settle(ms: number): Promise<void> {
  * the caller's follow-up read produce a confusing "guard violated" failure instead.
  */
 async function waitForProofOfLiveness(sc: ScenarioContext, o: { assetId: string; fromIso: string; budgetMs: number }): Promise<void> {
+  if (sc.livenessLog) {
+    await assertServiceLog(sc.livenessLog, sc);
+    return;
+  }
   await ensureReaderAvailable(sc);
   try {
     await expect
@@ -525,13 +529,21 @@ export async function assertDriverEventRowCount(count: number, sc: ScenarioConte
  * When it never shows up and a pod was replaced during the window, the failure says so, because a
  * deleted pod takes its log with it and the line may have been written there.
  */
+/** The non-UUID `driver_guid` an execution sends, so a service-log expectation can name it. */
+export function malformedDriverGuid(sc: ScenarioContext): string {
+  return `frtest-not-a-uuid-${sc.t0.getTime()}`;
+}
+
 export async function assertServiceLog(exp: ServiceLogExpectation, sc: ScenarioContext): Promise<void> {
-  const needle = exp.contains.replace('{accountId}', sc.run.accountId);
+  const needles = (typeof exp.contains === 'string' ? [exp.contains] : exp.contains).map((text) =>
+    text.replace('{accountId}', sc.run.accountId).replace('{malformedGuid}', malformedDriverGuid(sc)),
+  );
+  const needle = needles.join('" and "');
   const ref = { namespace: exp.namespace, deployment: exp.deployment };
   const deadline = Date.now() + LIVE_BUDGET_MS;
   for (;;) {
     const lines = await readDeploymentLogs(ref, sc.t0);
-    if (lines.some((line) => line.includes(needle))) return;
+    if (lines.some((line) => needles.every((text) => line.includes(text)))) return;
     if (Date.now() >= deadline) break;
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }

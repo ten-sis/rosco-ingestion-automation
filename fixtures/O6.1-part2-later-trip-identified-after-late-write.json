@@ -1,0 +1,63 @@
+{
+  "id": "O6.1",
+  "title": "O6, then trip 2's own identifications (part 2 of 2)",
+  "description": "Part 2 of 2 for O6.1, played after O6's part 1 against the same asset. Same as O6's part 2: a second trip runs and closes, then a late identification for A lands in part 1's trip window. After that, trip 2's first identification arrives for C (claimed atSec 100, inside trip 2, delivered at 270), and a later one for D (claimed atSec 120, delivered at 290). Must prove (design O6.1): trip 2's driver and the asset change to C. D's later identification changes nothing.",
+  "suite": "fr-trip-lookup",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip 2 starts"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945,
+        "note": "trip 2 ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": -300,
+      "deliverAtSec": 250,
+      "driver": "A",
+      "type": "identDrv",
+      "note": "claimed timestamp stands in for a point inside part1's trip window; delivered only after this file's own trip has already started and ended"
+    },
+    {
+      "atSec": 100,
+      "deliverAtSec": 270,
+      "driver": "C",
+      "type": "identDrv",
+      "note": "trip 2's first identification, delivered after the late one for trip 1"
+    },
+    {
+      "atSec": 120,
+      "deliverAtSec": 290,
+      "driver": "D",
+      "type": "identDrv",
+      "note": "a later identification for trip 2, which must change nothing"
+    }
+  ]
+}

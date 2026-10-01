@@ -83,6 +83,11 @@ export interface IdentStep extends StepBase {
   unknownDriver?: boolean;
   /** Send a Type 7 naming the fleet's soft-deleted fixture contact. Needs `driver: null`. */
   deletedDriver?: boolean;
+  /**
+   * Send a Type 7 whose `driver_guid` isn't a UUID (`malformedDriverGuid` in `scenario/runner.ts`).
+   * Needs `driver: null`. Always goes through the webhook, since be-crud's publish route rejects it.
+   */
+  malformedDriverGuid?: boolean;
 }
 
 /** A manual asset-assignee correction, the way a human makes one in the UI. */
@@ -218,7 +223,8 @@ export interface Expectation {
 export interface ServiceLogExpectation {
   namespace: string;
   deployment: string;
-  contains: string;
+  /** Text one log line must contain. A list means all of them on the same line. */
+  contains: string | readonly string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +270,11 @@ export interface Scenario {
    * something was true *during* the trip rather than at the end of it.
    */
   expectAfterStep?: Array<{ afterIndex: number; expect: Expectation }>;
+  /**
+   * For a case where the pipeline writes no row, the log line that proves it handled the
+   * identification. Negative checks wait for it instead of a row.
+   */
+  livenessLog?: ServiceLogExpectation;
   /** Number of times to repeat the whole scenario. Used by the race case. */
   repeat?: number;
   /** Why this case exists, in the design doc's own words. Printed on failure. */

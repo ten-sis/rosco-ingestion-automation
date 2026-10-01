@@ -36,7 +36,7 @@ import type { DriverEventEmitter } from '../emit/index';
 import type { TelemetryEmitter } from '../emit/telemetry';
 import type { DriverEventsReader } from '../read/driverEvents';
 import { searchTrips } from '../api/trips';
-import type { AssetRef, Step, TripRef } from './types';
+import type { AssetRef, ServiceLogExpectation, Step, TripRef } from './types';
 
 export interface ScenarioContext {
   api: ApiClient;
@@ -55,6 +55,8 @@ export interface ScenarioContext {
   secondaryAsset(): Promise<RunContext>;
   /** Anchor for the scenario's logical clock. Set by the runner at the start of each scenario. */
   t0: Date;
+  /** The scenario's `livenessLog`, set by the runner. */
+  livenessLog?: ServiceLogExpectation;
 }
 
 /** Resolves an `AssetRef` to the concrete `RunContext` it names. Undefined means the primary asset. */

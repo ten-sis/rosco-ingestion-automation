@@ -69,9 +69,9 @@ function checkIdentification(id, i, errors) {
   if (id.type !== undefined && !VALID_IDENT_TYPES.has(id.type)) {
     fail(errors, `${where}: "type" must be identDrv or unDrv when present (got ${JSON.stringify(id.type)})`);
   }
-  const namesOther = id.unknownDriver || id.deletedDriver;
+  const namesOther = id.unknownDriver || id.deletedDriver || id.malformedDriverGuid;
   if (namesOther && (id.driver !== null || id.type !== 'identDrv')) {
-    fail(errors, `${where}: unknownDriver and deletedDriver need driver null and type "identDrv"`);
+    fail(errors, `${where}: unknownDriver, deletedDriver and malformedDriverGuid need driver null and type "identDrv"`);
   }
   if (id.driver === null && !namesOther && id.type !== undefined && id.type !== 'unDrv') {
     fail(errors, `${where}: driver is null but type is "${id.type}", expected "unDrv"`);

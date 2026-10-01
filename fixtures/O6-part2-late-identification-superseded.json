@@ -1,7 +1,7 @@
 {
   "id": "O6",
   "title": "Late identification for a trip already superseded by a later one (part 2 of 2, second trip and the late identification)",
-  "description": "Part 2 of 2 for O6, played after part1 against the same asset. This trip is a second, later trip that runs and closes normally before the identification arrives. The identification's claimed atSec is -600 relative to THIS file's trip start, standing in for a timestamp inside part1's trip window (real elapsed wall-clock time between the two playback sessions is not reproducible across separate fixture files, so this offset is descriptive rather than exact); it is not delivered until atSec 250, after this trip has already started and ended. Must prove (TS-44193 agreed behavior): part1's trip is linked (closed trip covers, flagged arrived_after_trip_ended), its assignee becomes A, and its two violations are re-assigned to A. The asset also becomes A, because the identification is the latest change (latest write wins). Must NOT change: this file's own trip (trip 2) keeps its own assignee.",
+  "description": "Part 2 of 2 for O6, played after part1 against the same asset. This trip is a second, later trip that runs and closes normally before the identification arrives. The identification's claimed atSec is -300 relative to THIS file's trip start, standing in for a timestamp inside part1's trip window (real elapsed wall-clock time between the two playback sessions is not reproducible across separate fixture files, so this offset is descriptive rather than exact); it is not delivered until atSec 250, after this trip has already started and ended. Must prove (TS-44193 agreed behavior): part1's trip is linked (closed trip covers, flagged arrived_after_trip_ended), its assignee becomes A, and its two violations are re-assigned to A. The asset also becomes A, because the identification is the latest change (latest write wins). Must NOT change: this file's own trip (trip 2) keeps its own assignee.",
   "suite": "fr-trip-lookup",
   "delay": {
     "mode": "none"
@@ -39,7 +39,7 @@
   },
   "driver_identifications": [
     {
-      "atSec": -600,
+      "atSec": -300,
       "deliverAtSec": 250,
       "driver": "A",
       "type": "identDrv",

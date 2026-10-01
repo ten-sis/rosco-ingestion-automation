@@ -76,6 +76,8 @@ export interface FixtureIdentification {
   unknownDriver?: boolean;
   /** A Type 7 naming the fleet's soft-deleted fixture contact. Needs `driver: null` and `type: 'identDrv'`. */
   deletedDriver?: boolean;
+  /** A Type 7 whose `driver_guid` isn't a UUID. Needs `driver: null` and `type: 'identDrv'`. */
+  malformedDriverGuid?: boolean;
   note?: string;
 }
 

@@ -1,0 +1,56 @@
+{
+  "id": "O8e",
+  "title": "Identification whose driver_guid isn't a UUID",
+  "description": "Design O8.1, second half. A Type 7 arrives through the webhook with a driver_guid that isn't a UUID. HARDBRAKE at 30, identification at 70, trip end at 150. Must prove: be-crud's contact lookup answers 422, the identification consumer logs the error and rejects the message to its error queue, and no row is written. Must NOT change: the asset assignee, the trip assignee, or the violation's attribution.",
+  "suite": "fr-guards",
+  "delay": {
+    "mode": "none"
+  },
+  "trip": {
+    "events": [
+      {
+        "type": "IGN_ON",
+        "atSec": 0,
+        "lat": 40.70297,
+        "lon": -74.43029,
+        "note": "trip starts"
+      },
+      {
+        "type": "HARDBRAKE",
+        "atSec": 30,
+        "lat": 40.70305,
+        "lon": -74.43015,
+        "note": "violation that must not move"
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 58,
+        "lat": 40.70312,
+        "lon": -74.43001
+      },
+      {
+        "type": "ON_PERIODIC",
+        "atSec": 116,
+        "lat": 40.70327,
+        "lon": -74.42973
+      },
+      {
+        "type": "IGN_OFF",
+        "atSec": 150,
+        "lat": 40.70342,
+        "lon": -74.42945,
+        "note": "trip ends"
+      }
+    ],
+    "type": "normal"
+  },
+  "driver_identifications": [
+    {
+      "atSec": 70,
+      "driver": null,
+      "type": "identDrv",
+      "malformedDriverGuid": true,
+      "note": "a driver_guid that isn't a UUID"
+    }
+  ]
+}

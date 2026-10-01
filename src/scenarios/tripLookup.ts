@@ -37,6 +37,7 @@ import o5Fixture from '../../fixtures/O5-no-covering-trip-ever.json';
 import o14Fixture from '../../fixtures/O14-identification-before-trip-started.json';
 import o6Part1Fixture from '../../fixtures/O6-part1-first-trip-with-violations.json';
 import o6Part2Fixture from '../../fixtures/O6-part2-late-identification-superseded.json';
+import o61Part2Fixture from '../../fixtures/O6.1-part2-later-trip-identified-after-late-write.json';
 import { expandFixtureToSteps, insertAfterIndex, lastIndexWhere } from './fixturePlayback';
 
 /**
@@ -46,18 +47,20 @@ import { expandFixtureToSteps, insertAfterIndex, lastIndexWhere } from './fixtur
  * would let trip 2's `IGN_ON` land at or before trip 1's own `IGN_OFF`, which is exactly the kind
  * of boundary tie / inversion O6 and O12c exist to rule out, not accidentally reintroduce.
  *
- * The value is not arbitrary: fixtures/O6-part2's own identification claims atSec -600 relative
+ * The value is not arbitrary: fixtures/O6-part2's own identification claims atSec -300 relative
  * to ITS OWN (zero-based) trip start, standing in for "atSec 180" in part1's trip window — part1's
  * own fixture file names that exact value ("both before atSec 180, the point in this trip's window
  * that part2's identification claims"). Once part2 is offset by `lastAtSec(part1) + GAP`, that
- * identification's stamped atSec becomes `lastAtSec(part1) + GAP - 600`; solving for it to land
+ * identification's stamped atSec becomes `lastAtSec(part1) + GAP - 300`; solving for it to land
  * back on 180 (part1's own `IGN_OFF` is at atSec 200, so 180 keeps it inside the closed trip's
  * window, both before its own violations' re-check and short of tripping row 3 of the
  * covering-guard table, "end_date < timestamp -> do not link", which is O12c's case, not O6's)
- * gives 580. That same 580 keeps O12c's own part2 identification (local atSec -40, needing only
+ * gives 280. That same 280 keeps O12c's own part2 identification (local atSec -40, needing only
  * to clear part1's last atSec by more than 40) comfortably inside the gap between its two trips.
+ * Keep it small: the runner backdates the timeline by about this much and then waits for the
+ * earliest identification to land after the preconditions, so the gap is roughly the start delay.
  */
-const TWO_PART_TRIP_GAP_SEC = 580;
+const TWO_PART_TRIP_GAP_SEC = 280;
 
 /** The highest `atSec` among a compiled part's own steps, i.e. that part's trip closing. Used to
  *  continue a two-part fixture's clock into its second part rather than restarting it at 0. */
@@ -424,9 +427,9 @@ const O14: Scenario = {
 // fixtures/O6-part2-late-identification-superseded.json, played in order against the same asset.
 //
 // Part1's trip runs atSec 0-200 (IGN_OFF at 200); part2's own fixture file is zero-based (IGN_ON
-// at 0, identification at atSec -600 relative to ITS OWN trip start, a stand-in per the fixture's
+// at 0, identification at atSec -300 relative to ITS OWN trip start, a stand-in per the fixture's
 // own description for "atSec 180" in part1's window). Part2 is compiled with `atSecOffset` set to
-// part1's last atSec plus `TWO_PART_TRIP_GAP_SEC` (see that constant's own comment for why 580 is
+// part1's last atSec plus `TWO_PART_TRIP_GAP_SEC` (see that constant's own comment for why 280 is
 // exactly the value that lands the identification back on atSec 180 in part1's window), so its
 // trip continues part1's clock instead of restarting it.
 // ---------------------------------------------------------------------------
@@ -487,7 +490,7 @@ const O6: Scenario = {
     thresholdEvents: [{ tripRef: 'first', allAssignedTo: 'A', viaBackfill: true }],
   },
   rationale:
-    "Agreed behavior for TS-44193, which replaces the design's original 'no asset write' for a superseded trip: latest write wins for the asset. The late identification changes its own trip and the asset, as long as it's the latest change (the asset guard's event-timestamp comparison), and the row carries `arrived_after_trip_ended` like any late identification. The later trip keeps its own assignee, and its own identification is expected to correct the asset. Known residual, to watch: if the later trip's identification is stamped before this write lands but delivered after it, the asset guard skips it (`.runs/O6-unidentified-later-trip-asset-write.md`). Compiled from fixtures/O6-part1-first-trip-with-violations.json and fixtures/O6-part2-late-identification-superseded.json, played in order against the same asset, via fixturePlayback.ts: part1's trip carries two violations (HARDBRAKE, HARDACCEL) and closes with a settle('tripEnded') before part2's trip starts. Part2's trip then runs and closes, and only then does the late identification (claiming a timestamp inside part1's window) arrive. The trip lookup finds trip 1, links it (closed trip covers, flagged `arrived_after_trip_ended`), the claim is won, and both writes happen. Trip 1's own trip-end pass already ran, so its violations move only on the scorecard backfill cron, hence `@slow` and `viaBackfill`. Part2 is compiled with `atSecOffset: lastAtSec(o6Part1Base) + TWO_PART_TRIP_GAP_SEC` so its trip continues part1's clock, and the identification's own local atSec -600 lands back on atSec 180 in part1's window.",
+    "Agreed behavior for TS-44193, which replaces the design's original 'no asset write' for a superseded trip: latest write wins for the asset. The late identification changes its own trip and the asset, as long as it's the latest change (the asset guard's event-timestamp comparison), and the row carries `arrived_after_trip_ended` like any late identification. The later trip keeps its own assignee, and its own identification is expected to correct the asset. Known residual, to watch: if the later trip's identification is stamped before this write lands but delivered after it, the asset guard skips it (`.runs/O6-unidentified-later-trip-asset-write.md`). Compiled from fixtures/O6-part1-first-trip-with-violations.json and fixtures/O6-part2-late-identification-superseded.json, played in order against the same asset, via fixturePlayback.ts: part1's trip carries two violations (HARDBRAKE, HARDACCEL) and closes with a settle('tripEnded') before part2's trip starts. Part2's trip then runs and closes, and only then does the late identification (claiming a timestamp inside part1's window) arrive. The trip lookup finds trip 1, links it (closed trip covers, flagged `arrived_after_trip_ended`), the claim is won, and both writes happen. Trip 1's own trip-end pass already ran, so its violations move only on the scorecard backfill cron, hence `@slow` and `viaBackfill`. Part2 is compiled with `atSecOffset: lastAtSec(o6Part1Base) + TWO_PART_TRIP_GAP_SEC` so its trip continues part1's clock, and the identification's own local atSec -300 lands back on atSec 180 in part1's window.",
 };
 
 
@@ -496,4 +499,63 @@ const O6: Scenario = {
 export const TRIP_LOOKUP_SCENARIOS: readonly Scenario[] = [O12a, O12b, O12d, O12e, O12f, O5, O14];
 
 /** O12c and O6: the long-gap cases, in their own spec file and fleet. See the file comment. */
-export const TRIP_LOOKUP_GAP_SCENARIOS: readonly Scenario[] = [O12c, O6];
+// ---------------------------------------------------------------------------
+// O6.1 — O6's part 1, then fixtures/O6.1-part2-later-trip-identified-after-late-write.json
+// ---------------------------------------------------------------------------
+
+const o61Base: Step[] = [
+  ...o6Part1WithTripEndSettle,
+  ...expandFixtureToSteps(o61Part2Fixture as Fixture, { atSecOffset: lastAtSec(o6Part1Base) + TWO_PART_TRIP_GAP_SEC }),
+];
+const o61WithSecondTripEndSettle = insertAfterIndex(o61Base, lastIndexWhere(o61Base, (s) => s.kind === 'ignitionOff'), {
+  kind: 'settle',
+  atSec: 151,
+  until: 'tripEnded',
+  budget: 'TRIP_END_BUDGET_MS',
+});
+const o61LateIdentIndex = lastIndexWhere(o61WithSecondTripEndSettle, (s) => s.kind === 'ident' && s.driver === 'A');
+const o61Timeline: Step[] = insertAfterIndex(o61WithSecondTripEndSettle, o61LateIdentIndex, {
+  kind: 'settle',
+  atSec: 251,
+  until: 'identificationPersisted',
+  budget: 'LIVE_BUDGET_MS',
+});
+const o61LateIdentSettleIndex = o61LateIdentIndex + 1;
+
+const O61: Scenario = {
+  id: 'O6.1',
+  title: "O6, then trip 2's own identifications arrive",
+  priority: 'P0',
+  tags: ['@slow'],
+  preconditions: { assetAssignee: 'B' },
+  timeline: o61Timeline,
+  expectAfterStep: [
+    {
+      // The late identification for trip 1 has landed (O6), and trip 2 hasn't been identified yet.
+      afterIndex: o61LateIdentSettleIndex,
+      expect: {
+        assetAssignee: { value: 'A' },
+        trips: [
+          { tripRef: 'first', assignee: 'A' },
+          { tripRef: 'latest', assignee: 'unchanged' },
+        ],
+      },
+    },
+  ],
+  expect: {
+    assetAssignee: { value: 'C' },
+    trips: [
+      { tripRef: 'first', assignee: 'A' },
+      { tripRef: 'latest', assignee: 'C' },
+    ],
+    driverEvents: [
+      { driver: 'A', count: 1, isAssigneeSource: true, tripLink: { state: 'linked', tripRef: 'first' } },
+      { driver: 'C', count: 1, isAssigneeSource: true, tripLink: { state: 'linked', tripRef: 'latest' } },
+      { driver: 'D', count: 1, isAssigneeSource: null, tripLink: { state: 'linked', tripRef: 'latest' } },
+    ],
+  },
+  rationale:
+    "The design's O6.1: 'Same as O6, then trip 2's first identification arrives for another driver. Trip 2's driver and the asset change to that driver. A later identification for trip 2 changes nothing.' C's identification is stamped inside trip 2, which ended before trip 1's late identification for A landed, and is delivered after it. The asset guard compares the standing assignment's write time (when A's late write landed) with C's event time, so this case is where the known residual of the latest-write-wins decision shows: if the asset stays on A, the guard skipped C's write. D's identification, delivered last, must not take trip 2 from C. Violations aren't checked here, since O6 already covers trip 1's.",
+};
+
+export const TRIP_LOOKUP_GAP_SCENARIOS: readonly Scenario[] = [O12c, O6, O61];
