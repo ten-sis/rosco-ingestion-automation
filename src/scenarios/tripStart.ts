@@ -28,12 +28,23 @@ const o22WithIdentSettle = insertAfterIndex(o22Base, o22IdentIndex, {
 });
 const o22CheckpointIndex = o22IdentIndex + 1;
 const o22IgnitionOnIndex = lastIndexWhere(o22WithIdentSettle, (s) => s.kind === 'ignitionOn');
-const o22Timeline: Step[] = insertAfterIndex(o22WithIdentSettle, o22IgnitionOnIndex, {
+const o22WithTripStarted = insertAfterIndex(o22WithIdentSettle, o22IgnitionOnIndex, {
   kind: 'settle',
   atSec: 12,
   until: 'tripStarted',
   budget: 'LIVE_BUDGET_MS',
 });
+const o22WithAward = insertAfterIndex(o22WithTripStarted, o22IgnitionOnIndex + 1, {
+  kind: 'settle',
+  atSec: 13,
+  until: 'assigneeWritten',
+  budget: 'LIVE_BUDGET_MS',
+});
+// Sent well after the award so the assignee publish has reached processor-scorecard.
+const o22Timeline: Step[] = [
+  ...o22WithAward,
+  { kind: 'harshEvent', atSec: 120, sendAfterMs: 30_000, severity: 'hardBrake', note: 'raised after the trip-start award' },
+];
 
 const O22: Scenario = {
   id: 'O22',
@@ -62,9 +73,10 @@ const O22: Scenario = {
         flags: { arrived_before_trip_created: true, resulted_in_assignee_change: true },
       },
     ],
+    thresholdEvents: [{ tripRef: 'latest', allAssignedTo: 'A', noTransfers: true }],
   },
   rationale:
-    "The doc's O22: 'The trip-start consumer links it, awards the claim, writes both assignees and publishes the assignee change, so threshold events raised after that point already carry the identified driver.' Without the trip-start consumer, the row would be linked and correct in the database while the live scorecard state stayed wrong for the rest of the trip. Compiled from fixtures/O22-trip-start-after-identification.json (`delay.mode: 'full-burst'`, `burstStartAtSec: 5`: the identification is delivered live at deliverAtSec 0, and the trip-started message, though its own start_date is earlier, is not delivered until 5 seconds later; the trip is deliberately left open, no IGN_OFF) via fixturePlayback.ts — the burst delay mode this case is named for now actually reaches the test, rather than the hand-authored version's fixed array-order delivery.",
+    "The doc's O22: 'The trip-start consumer links it, awards the claim, writes both assignees and publishes the assignee change, so threshold events raised after that point already carry the identified driver.' Without the trip-start consumer, the row would be linked and correct in the database while the live scorecard state stayed wrong for the rest of the trip. Compiled from fixtures/O22-trip-start-after-identification.json (`delay.mode: 'full-burst'`, `burstStartAtSec: 5`: the identification is delivered live at deliverAtSec 0, and the trip-started message, though its own start_date is earlier, is not delivered until 5 seconds later; the trip is deliberately left open, no IGN_OFF) via fixturePlayback.ts — the burst delay mode this case is named for now actually reaches the test, rather than the hand-authored version's fixed array-order delivery. A hard brake is sent 30 seconds after the award, while the trip is still open. All violations on A with none transferred proves it was scored live on A from the trip-start publish, since the open trip never reaches the trip-end transfer.",
 };
 
 // ---------------------------------------------------------------------------

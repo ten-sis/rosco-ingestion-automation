@@ -37,7 +37,7 @@ Status values:
 | O19 | `o-licence.spec.ts` | `O19` | covered | Runs on `ACCOUNT_ID_FR_LICENCE` with a placeholder `trackit` integration. Asserts the outcome converges on A, and that trackit logged its FR skip for the account (`kubectl logs`, needs hapi-server-trackit `v1.2.0-build.3` or later) |
 | O20 | — | — | repo test | Repo unit tests (`driverEvent.test.ts`, `assetTripStarted.test.ts`) ack on a failed publish. The e2e test `an assignee publish that is lost` (TS-43928) shows trip end moves only violations up to the trip driver write, and leaves later ones to the backfill cron. The audit half stays manual. See `OUT-OF-SCOPE.md` |
 | O21 | `o-first-trip.spec.ts` | `O21` | opt-in | Struck from the initial release in the doc, but the trip-end consumer's pre-start tolerance shipped. Needs an asset's very first trip, so it creates a new asset every run and is tagged `@fresh-asset` |
-| O22 | `o-trip-start.spec.ts` | `O22` | covered | The trip-start consumer shipped in the initial release (TS-43907), though the doc still marks O22 to O24 phase 2 only |
+| O22 | `o-trip-start.spec.ts` | `O22` | covered | The trip-start consumer shipped in the initial release (TS-43907), though the doc still marks O22 to O24 phase 2 only. A violation raised after the award is checked to be on A with nothing transferred |
 | O23 | `o-trip-start.spec.ts` | `O23` | covered | |
 | O24 | `o-trip-start.spec.ts` | `O24` | partial | Asserts the outcome only. The adjacent-publish ordering can't be forced; see `PLAN/06-BLOCKERS.md` |
 | O26 | — | — | repo test | Same path as O16 now, since nothing checks S3 before publishing a driver event. Repo e2e test `a redelivered webhook` |

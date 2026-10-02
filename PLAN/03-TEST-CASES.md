@@ -218,8 +218,8 @@ What must ship first: the trip-end consumer's pre-start-tolerance fallback (`res
 ## O22 — Trip start arrives after an identification for that trip (`o-trip-start.spec.ts`)
 
 Preconditions: none.
-Timeline: identify A before the trip appears in Tenna; then the trip-started message arrives, backdated.
-Expected end state: linked, awarded, both assignees written, and the assignee publish fires so threshold events raised for the rest of the trip already carry A.
+Timeline: identify A before the trip appears in Tenna; then the trip-started message arrives, backdated. A hard brake follows 30 seconds after the award, with the trip still open.
+Expected end state: linked, awarded, both assignees written, and the assignee publish fires so threshold events raised for the rest of the trip already carry A. The hard brake's violation is on A with nothing transferred.
 What must ship first: the trip-start consumer, which shipped in the initial release (TS-43907).
 
 ## O23 — Trip-start and trip-end both run against the same linked row (`o-trip-start.spec.ts`)
